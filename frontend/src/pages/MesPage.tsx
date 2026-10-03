@@ -1,0 +1,113 @@
+import { useState } from "react";
+import type { Conta, Receita } from "../api/types.ts";
+import { ContaRow } from "../components/ContaRow.tsx";
+import { ContaSheet } from "../components/ContaSheet.tsx";
+import { ReceitaSheet } from "../components/ReceitaSheet.tsx";
+import { ResumoCard } from "../components/ResumoCard.tsx";
+import type { useMes } from "../hooks/useMes.ts";
+import { money, monthLabel } from "../lib/format.ts";
+
+interface Props {
+  ym: string;
+  mes: ReturnType<typeof useMes>;
+}
+
+export function MesPage({ ym, mes }: Props) {
+  const [contaAberta, setContaAberta] = useState<Conta | null>(null);
+  const [receitaAberta, setReceitaAberta] = useState<Receita | null>(null);
+  const label = monthLabel(ym);
+
+  if (mes.loading && !mes.data) return <div className="state">Carregando {label}…</div>;
+
+  if (mes.error && !mes.data) {
+    return (
+      <div className="state error">
+        <p>{mes.error}</p>
+        <button type="button" className="btn ghost" onClick={() => mes.reload()}>
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
+
+  const data = mes.data!;
+  const pendentes = data.contas.filter((c) => c.situacao !== "Pago" && c.situacao !== "Não se aplica");
+  const pagas = data.contas.filter((c) => c.situacao === "Pago");
+  const outras = data.contas.filter((c) => c.situacao === "Não se aplica");
+
+  return (
+    <>
+      <ResumoCard ind={data.indicadores} />
+
+      {data.contas.length === 0 ? (
+        <div className="state">Nenhuma conta ativa no Cadastro.</div>
+      ) : (
+        <>
+          {pendentes.length > 0 && (
+            <section className="card">
+              <h2 className="card-title">A pagar · {pendentes.length}</h2>
+              <div className="list">
+                {pendentes.map((c) => (
+                  <ContaRow key={c.linha} conta={c} onPress={setContaAberta} />
+                ))}
+              </div>
+            </section>
+          )}
+          {pagas.length > 0 && (
+            <section className="card">
+              <h2 className="card-title">Pagas · {money(data.indicadores.contasPagas)}</h2>
+              <div className="list">
+                {pagas.map((c) => (
+                  <ContaRow key={c.linha} conta={c} onPress={setContaAberta} />
+                ))}
+              </div>
+            </section>
+          )}
+          {outras.length > 0 && (
+            <section className="card">
+              <h2 className="card-title">Não se aplica este mês</h2>
+              <div className="list">
+                {outras.map((c) => (
+                  <ContaRow key={c.linha} conta={c} onPress={setContaAberta} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      <section className="card">
+        <h2 className="card-title">Receitas · {money(data.indicadores.receitasMes)}</h2>
+        <div className="list">
+          {data.receitas.map((r) => (
+            <button key={r.linha} type="button" className="row" onClick={() => setReceitaAberta(r)}>
+              <div className="row-main">
+                <span className="row-name">{r.fonte}</span>
+              </div>
+              <div className="row-side">
+                <span className={`row-value ${r.valor ? "pos" : ""}`}>{money(r.valor)}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {contaAberta && (
+        <ContaSheet
+          conta={contaAberta}
+          mesLabel={label}
+          onClose={() => setContaAberta(null)}
+          onSave={(body) => mes.salvarConta(contaAberta.linha, body)}
+        />
+      )}
+      {receitaAberta && (
+        <ReceitaSheet
+          receita={receitaAberta}
+          mesLabel={label}
+          onClose={() => setReceitaAberta(null)}
+          onSave={(body) => mes.salvarReceita(receitaAberta.linha, body)}
+        />
+      )}
+    </>
+  );
+}
