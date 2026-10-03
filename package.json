@@ -1,0 +1,15 @@
+{
+  "name": "mycosts",
+  "private": true,
+  "description": "Roda back e front juntos em dev. Deploy continua separado (Render usa backend/, Vercel usa frontend/).",
+  "scripts": {
+    "postinstall": "npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently -n back,front -c blue,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "migrate": "npm run migrate --prefix backend",
+    "criar-usuario": "npm run criar-usuario --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

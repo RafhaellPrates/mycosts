@@ -1,6 +1,6 @@
 /**
- * Contrato da API. Espelha backend/src/mes/types.ts e as rotas de
- * auth e cadastro do back.
+ * Contrato da API do mes. Espelha frontend/src/api/types.ts; a unica mudanca
+ * em relacao a fase da planilha e `id` (uuid) no lugar de `linha`.
  */
 
 export type Situacao = "Pago" | "Pendente" | "Não se aplica" | "";
@@ -57,55 +57,4 @@ export interface MesResponse {
   indicadores: Indicadores;
   categorias: CategoriaGasto[];
   resumoAnual: ResumoMensal[];
-}
-
-export interface PatchContaBody {
-  pago: number | null;
-  situacao: Situacao;
-}
-
-export interface PatchReceitaBody {
-  valor: number | null;
-}
-
-// ---- auth ----
-
-export interface Usuario {
-  id: string;
-  email: string;
-  nome: string;
-}
-
-/** senhaAtual e obrigatoria quando troca email ou senha. */
-export interface PerfilBody {
-  nome?: string;
-  email?: string;
-  senhaAtual?: string;
-  novaSenha?: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  usuario: Usuario;
-}
-
-// ---- cadastro ----
-
-export interface ContaCadastro {
-  id: string;
-  nome: string;
-  categoria: string;
-  diaVenc: number | null;
-  previsto: number;
-  ativa: boolean;
-  ordem: number;
-}
-
-export type ContaCadastroBody = Pick<ContaCadastro, "nome" | "categoria" | "diaVenc" | "previsto">;
-
-export interface Fonte {
-  id: string;
-  nome: string;
-  ativa: boolean;
-  ordem: number;
 }

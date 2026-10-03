@@ -40,7 +40,7 @@ export function MesPage({ ym, mes }: Props) {
       <ResumoCard ind={data.indicadores} />
 
       {data.contas.length === 0 ? (
-        <div className="state">Nenhuma conta ativa no Cadastro.</div>
+        <div className="state">Nenhuma conta cadastrada. Use a aba Cadastro.</div>
       ) : (
         <>
           {pendentes.length > 0 && (
@@ -48,7 +48,7 @@ export function MesPage({ ym, mes }: Props) {
               <h2 className="card-title">A pagar · {pendentes.length}</h2>
               <div className="list">
                 {pendentes.map((c) => (
-                  <ContaRow key={c.linha} conta={c} onPress={setContaAberta} />
+                  <ContaRow key={c.id} conta={c} onPress={setContaAberta} />
                 ))}
               </div>
             </section>
@@ -58,7 +58,7 @@ export function MesPage({ ym, mes }: Props) {
               <h2 className="card-title">Pagas · {money(data.indicadores.contasPagas)}</h2>
               <div className="list">
                 {pagas.map((c) => (
-                  <ContaRow key={c.linha} conta={c} onPress={setContaAberta} />
+                  <ContaRow key={c.id} conta={c} onPress={setContaAberta} />
                 ))}
               </div>
             </section>
@@ -68,7 +68,7 @@ export function MesPage({ ym, mes }: Props) {
               <h2 className="card-title">Não se aplica este mês</h2>
               <div className="list">
                 {outras.map((c) => (
-                  <ContaRow key={c.linha} conta={c} onPress={setContaAberta} />
+                  <ContaRow key={c.id} conta={c} onPress={setContaAberta} />
                 ))}
               </div>
             </section>
@@ -80,7 +80,7 @@ export function MesPage({ ym, mes }: Props) {
         <h2 className="card-title">Receitas · {money(data.indicadores.receitasMes)}</h2>
         <div className="list">
           {data.receitas.map((r) => (
-            <button key={r.linha} type="button" className="row" onClick={() => setReceitaAberta(r)}>
+            <button key={r.id} type="button" className="row" onClick={() => setReceitaAberta(r)}>
               <div className="row-main">
                 <span className="row-name">{r.fonte}</span>
               </div>
@@ -97,7 +97,7 @@ export function MesPage({ ym, mes }: Props) {
           conta={contaAberta}
           mesLabel={label}
           onClose={() => setContaAberta(null)}
-          onSave={(body) => mes.salvarConta(contaAberta.linha, body)}
+          onSave={(body) => mes.salvarConta(contaAberta.id, body)}
         />
       )}
       {receitaAberta && (
@@ -105,7 +105,7 @@ export function MesPage({ ym, mes }: Props) {
           receita={receitaAberta}
           mesLabel={label}
           onClose={() => setReceitaAberta(null)}
-          onSave={(body) => mes.salvarReceita(receitaAberta.linha, body)}
+          onSave={(body) => mes.salvarReceita(receitaAberta.id, body)}
         />
       )}
     </>

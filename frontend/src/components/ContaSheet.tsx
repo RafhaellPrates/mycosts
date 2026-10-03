@@ -64,7 +64,7 @@ export function ContaSheet({ conta, mesLabel, onClose, onSave }: Props) {
           Cancelar
         </button>
         <button type="button" className="btn" onClick={submit} disabled={saving}>
-          {saving ? "Salvando…" : "Salvar na planilha"}
+          {saving ? "Salvando…" : "Salvar"}
         </button>
       </div>
     </Sheet>

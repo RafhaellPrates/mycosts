@@ -1,0 +1,26 @@
+# Blueprint do Render: New > Blueprint > escolher este repo.
+# Valores com sync: false sao pedidos no painel na primeira vez.
+services:
+  - type: web
+    name: mycosts-api
+    runtime: node
+    plan: free
+    # Render nao tem Sao Paulo; Virginia e a mais perto do banco (sa-east-1).
+    region: virginia
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run build
+    # Aplica migrations pendentes antes de subir; sem migration nova, nao faz nada.
+    startCommand: npm run migrate:prod && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 30d
