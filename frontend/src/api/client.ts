@@ -1,4 +1,5 @@
-export const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
+// Mesma origem do front: o Express serve o app e a API (em dev, via proxy do Vite).
+export const API_URL = "/api";
 
 const TOKEN_KEY = "mycosts.token";
 

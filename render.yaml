@@ -1,16 +1,21 @@
 # Blueprint do Render: New > Blueprint > escolher este repo.
 # Valores com sync: false sao pedidos no painel na primeira vez.
+# Um servico so: o Express serve a API em /api e o front buildado.
 services:
   - type: web
-    name: mycosts-api
+    name: mycosts
     runtime: node
     plan: free
     # Render nao tem Sao Paulo; Virginia e a mais perto do banco (sa-east-1).
     region: virginia
-    rootDir: backend
-    buildCommand: npm ci --include=dev && npm run build
+    branch: main
+    buildCommand: >-
+      npm ci --prefix backend --include=dev &&
+      npm ci --prefix frontend --include=dev &&
+      npm run build --prefix backend &&
+      npm run build --prefix frontend
     # Aplica migrations pendentes antes de subir; sem migration nova, nao faz nada.
-    startCommand: npm run migrate:prod && npm start
+    startCommand: npm run migrate:prod --prefix backend && npm start --prefix backend
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -19,8 +24,6 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
-        sync: false
-      - key: CORS_ORIGIN
         sync: false
       - key: JWT_EXPIRES_IN
         value: 30d
