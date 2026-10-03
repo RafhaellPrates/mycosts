@@ -6,16 +6,16 @@ App web mobile-first para controlar contas fixas e receitas mes a mes, no format
 
 ```
 iPhone (Safari)
-   |  HTTPS
+   |  HTTPS, uma URL so
    v
-Front: React + TypeScript (Vite)  -> Vercel
-   |  JSON + Bearer JWT
-   v
-Back: Node + Express + TypeScript -> Render
-   |  SQL (pg, DATABASE_URL)
+Render: Node + Express + TypeScript
+   |-- /      front React + TypeScript (build do Vite, arquivos estaticos)
+   |-- /api   API JSON com Bearer JWT
    v
 Postgres (hospedado no Supabase, usado so como banco)
 ```
+
+Front e API no mesmo servico e na mesma origem: sem CORS e sem URL de API para configurar. Em dev o front roda no Vite (5173), que repassa `/api` para o back (3000).
 
 O Supabase e so o host do Postgres: nada de Supabase Auth, supabase-js ou Data API. Login, senha (bcrypt) e JWT ficam no back, e toda consulta filtra por usuario. Trocar de provedor = trocar `DATABASE_URL` e rodar as migrations.
 
@@ -32,10 +32,9 @@ Na raiz do repo (o `npm install` da raiz instala tambem `backend` e `frontend`):
 
 ```bash
 cp backend/.env.example backend/.env     # preencher DATABASE_URL e JWT_SECRET
-cp frontend/.env.example frontend/.env   # VITE_API_URL aponta para o back
 npm install
 npm run migrate        # cria/atualiza as tabelas
-npm run dev            # back em http://localhost:3000 e front em http://localhost:5173
+npm run dev            # abrir http://localhost:5173 (back em 3000)
 ```
 
 ## Acessos
@@ -56,13 +55,12 @@ npm run importar -- "C:/caminho/Controle_Financeiro_2026.xlsx" voce@email.com --
 
 ## Deploy
 
-- **Back (Render):** New > Blueprint > este repo. O `render.yaml` cria o servico `mycosts-api` (free, Virginia) e pede `DATABASE_URL` (Session pooler do Supabase), `JWT_SECRET` e `CORS_ORIGIN` (URL da Vercel). Migrations rodam sozinhas no start.
-- **Front (Vercel):** importar o repo com Root Directory `frontend` (preset Vite) e `VITE_API_URL` = URL do Render.
-- **Manter o back acordado:** o plano free dorme apos 15 min sem acesso. Um cron externo (cron-job.org) chamando `GET /health` a cada 10 min evita a espera de ~50 s na primeira abertura.
+- **Render:** New > Blueprint > este repo. O `render.yaml` cria o servico `mycosts` (free, Virginia, branch `main`), builda back e front e pede `DATABASE_URL` (Session pooler do Supabase) e `JWT_SECRET`. Migrations rodam sozinhas no start.
+- **Manter acordado:** o plano free dorme apos 15 min sem acesso e leva ~50 s para acordar. Um cron externo (cron-job.org) chamando `GET /health` a cada 10 min evita isso; um servico ligado 24h cabe nas 750 h/mes do free.
 
 ## API
 
-Tudo fora de `/health` e `/auth/login` exige `Authorization: Bearer <token>`.
+Rotas com prefixo `/api` (ex: `/api/auth/login`). Tudo fora de `/health` e `/api/auth/login` exige `Authorization: Bearer <token>`.
 
 | Metodo | Rota | O que faz |
 | --- | --- | --- |
