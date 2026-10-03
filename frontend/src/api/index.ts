@@ -5,6 +5,8 @@ import type {
   ContaCadastro,
   ContaCadastroBody,
   Fonte,
+  Lancamento,
+  LancamentoBody,
   MesResponse,
   PatchContaBody,
   PatchReceitaBody,
@@ -25,6 +27,11 @@ export const api = {
     http.patch<Conta>(`/mes/${ym}/contas/${id}`, body),
   patchReceita: (ym: string, id: string, body: PatchReceitaBody) =>
     http.patch<Receita>(`/mes/${ym}/receitas/${id}`, body),
+
+  // lancamentos avulsos
+  criarLancamento: (body: LancamentoBody) => http.post<Lancamento>("/lancamentos", body),
+  editarLancamento: (id: string, body: Partial<LancamentoBody>) => http.patch<Lancamento>(`/lancamentos/${id}`, body),
+  apagarLancamento: (id: string) => http.delete<void>(`/lancamentos/${id}`),
 
   // cadastro
   categorias: () => http.get<{ categorias: string[] }>("/categorias"),

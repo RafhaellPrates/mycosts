@@ -1,11 +1,12 @@
 import { useState } from "react";
-import type { Conta, Receita } from "../api/types.ts";
+import type { Conta, Lancamento, Receita } from "../api/types.ts";
 import { ContaRow } from "../components/ContaRow.tsx";
 import { ContaSheet } from "../components/ContaSheet.tsx";
+import { LancamentoSheet } from "../components/LancamentoSheet.tsx";
 import { ReceitaSheet } from "../components/ReceitaSheet.tsx";
 import { ResumoCard } from "../components/ResumoCard.tsx";
 import type { useMes } from "../hooks/useMes.ts";
-import { money, monthLabel } from "../lib/format.ts";
+import { dayMonth, money, monthLabel } from "../lib/format.ts";
 
 interface Props {
   ym: string;
@@ -15,6 +16,7 @@ interface Props {
 export function MesPage({ ym, mes }: Props) {
   const [contaAberta, setContaAberta] = useState<Conta | null>(null);
   const [receitaAberta, setReceitaAberta] = useState<Receita | null>(null);
+  const [lancAberto, setLancAberto] = useState<Lancamento | "novo" | null>(null);
   const label = monthLabel(ym);
 
   if (mes.loading && !mes.data) return <div className="state">Carregando {label}…</div>;
@@ -77,6 +79,34 @@ export function MesPage({ ym, mes }: Props) {
       )}
 
       <section className="card">
+        <div className="card-head">
+          <h2 className="card-title">Gastos avulsos · {money(data.indicadores.avulsosMes)}</h2>
+          <button type="button" className="btn small" onClick={() => setLancAberto("novo")}>
+            + Gasto
+          </button>
+        </div>
+        {data.lancamentos.length === 0 ? (
+          <div className="state">Nenhum gasto avulso neste mês.</div>
+        ) : (
+          <div className="list">
+            {data.lancamentos.map((l) => (
+              <button key={l.id} type="button" className="row" onClick={() => setLancAberto(l)}>
+                <div className="row-main">
+                  <span className="row-name">{l.descricao}</span>
+                  <span className="row-sub">
+                    {dayMonth(l.data)} · {l.categoria} · {l.formaPagamento}
+                  </span>
+                </div>
+                <div className="row-side">
+                  <span className="row-value neg">{money(l.valor)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
         <h2 className="card-title">Receitas · {money(data.indicadores.receitasMes)}</h2>
         <div className="list">
           {data.receitas.map((r) => (
@@ -99,6 +129,20 @@ export function MesPage({ ym, mes }: Props) {
           onClose={() => setContaAberta(null)}
           onSave={(body) => mes.salvarConta(contaAberta.id, body)}
         />
+      )}
+      {lancAberto && (
+        <LancamentoSheet
+          lancamento={lancAberto === "novo" ? null : lancAberto}
+          ym={ym}
+          onClose={() => setLancAberto(null)}
+          onSave={(body) => mes.salvarLancamento(lancAberto === "novo" ? null : lancAberto.id, body)}
+          onDelete={() => (lancAberto === "novo" ? Promise.resolve() : mes.apagarLancamento(lancAberto.id))}
+        />
+      )}
+      {!lancAberto && (
+        <button type="button" className="fab" aria-label="Novo gasto" onClick={() => setLancAberto("novo")}>
+          +
+        </button>
       )}
       {receitaAberta && (
         <ReceitaSheet

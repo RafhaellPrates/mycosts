@@ -22,17 +22,37 @@ export interface Receita {
   valor: number | null;
 }
 
+export const FORMAS_PAGAMENTO = ["Crédito", "Débito", "Pix", "Dinheiro"] as const;
+export type FormaPagamento = (typeof FORMAS_PAGAMENTO)[number];
+
+/** Gasto avulso. Conta no mes da data, mesmo no credito. */
+export interface Lancamento {
+  id: string;
+  /** AAAA-MM-DD */
+  data: string;
+  descricao: string;
+  categoria: string;
+  valor: number;
+  formaPagamento: FormaPagamento;
+}
+
+export type LancamentoBody = Omit<Lancamento, "id">;
+
 export interface Indicadores {
   receitasMes: number;
   contasPrevistas: number;
+  /** Todas as contas pagas no mes, inclusive faturas de cartao. */
   contasPagas: number;
   emAberto: number;
+  avulsosMes: number;
+  /** Contas pagas sem as faturas + avulsos: o que foi gasto no mes. */
+  gastosMes: number;
   /** 0..1 */
   pctRendaComprometida: number | null;
   faturasCartao: number;
   pendentesQtd: number;
   receitasAno: number;
-  pagoAno: number;
+  gastosAno: number;
   saldoAno: number;
 }
 
@@ -46,7 +66,7 @@ export interface CategoriaGasto {
 export interface ResumoMensal {
   ym: string;
   receitas: number;
-  pagas: number;
+  gastos: number;
   saldo: number;
 }
 
@@ -54,6 +74,7 @@ export interface MesResponse {
   ym: string;
   contas: Conta[];
   receitas: Receita[];
+  lancamentos: Lancamento[];
   indicadores: Indicadores;
   categorias: CategoriaGasto[];
   resumoAnual: ResumoMensal[];

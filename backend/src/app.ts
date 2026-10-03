@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import express, { Router } from "express";
 import { authRouter } from "./auth/routes.js";
 import { cadastroRouter } from "./cadastro/routes.js";
+import { lancamentosRouter } from "./lancamentos/routes.js";
 import { mesRouter } from "./mes/routes.js";
 import { HttpError, tratarErro } from "./http.js";
 
@@ -25,6 +26,7 @@ app.get("/health", (_req, res) => {
 const api = Router();
 api.use("/auth", authRouter);
 api.use("/mes", mesRouter);
+api.use("/lancamentos", lancamentosRouter);
 api.use(cadastroRouter);
 api.use((_req, _res) => {
   throw new HttpError(404, "Rota nao encontrada.");

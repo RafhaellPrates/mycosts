@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/index.ts";
-import type { MesResponse, PatchContaBody, PatchReceitaBody } from "../api/types.ts";
+import type { LancamentoBody, MesResponse, PatchContaBody, PatchReceitaBody } from "../api/types.ts";
 
 interface State {
   data: MesResponse | null;
@@ -9,7 +9,7 @@ interface State {
 }
 
 /**
- * Carrega o mes e expoe as duas acoes de escrita. Depois de um PATCH
+ * Carrega o mes e expoe as acoes de escrita. Depois de cada escrita
  * recarrega o mes inteiro: os indicadores sao calculados no servidor.
  */
 export function useMes(ym: string) {
@@ -49,5 +49,23 @@ export function useMes(ym: string) {
     [ym, load],
   );
 
-  return { ...state, reload: load, salvarConta, salvarReceita };
+  /** id null = lancamento novo. */
+  const salvarLancamento = useCallback(
+    async (id: string | null, body: LancamentoBody) => {
+      if (id) await api.editarLancamento(id, body);
+      else await api.criarLancamento(body);
+      await load(true);
+    },
+    [load],
+  );
+
+  const apagarLancamento = useCallback(
+    async (id: string) => {
+      await api.apagarLancamento(id);
+      await load(true);
+    },
+    [load],
+  );
+
+  return { ...state, reload: load, salvarConta, salvarReceita, salvarLancamento, apagarLancamento };
 }

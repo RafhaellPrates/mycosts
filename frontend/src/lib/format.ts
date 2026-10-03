@@ -23,6 +23,12 @@ export function monthShort(ym: string): string {
   return `${s}/${String(y).slice(2)}`;
 }
 
+/** "2026-10-03" -> "03/10" */
+export function dayMonth(data: string): string {
+  const [, m, d] = data.split("-");
+  return `${d}/${m}`;
+}
+
 export function currentYm(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

@@ -22,14 +22,16 @@ export function PainelPage({ ym, mes }: Props) {
         <div className="grid-2">
           <Stat label="Receitas do mês" value={money(ind.receitasMes)} cls="pos" />
           <Stat label="Contas previstas" value={money(ind.contasPrevistas)} />
-          <Stat label="Contas pagas" value={money(ind.contasPagas)} cls="neg" />
+          <Stat label="Gastos do mês" value={money(ind.gastosMes)} cls="neg" />
+          <Stat label="Contas pagas" value={money(ind.contasPagas)} />
+          <Stat label="Gastos avulsos" value={money(ind.avulsosMes)} />
           <Stat label="Em aberto" value={ind.emAberto > 0 ? money(ind.emAberto) : "—"} cls={ind.emAberto > 0 ? "warn" : ""} />
           <Stat
             label="% da renda comprometida"
             value={pct(ind.pctRendaComprometida)}
             cls={(ind.pctRendaComprometida ?? 0) > 0.8 ? "warn" : ""}
           />
-          <Stat label="Faturas de cartão" value={money(ind.faturasCartao)} />
+          <Stat label="Faturas pagas" value={money(ind.faturasCartao)} />
           <Stat label="Contas pendentes" value={String(ind.pendentesQtd)} cls={ind.pendentesQtd > 0 ? "warn" : ""} />
         </div>
       </section>
@@ -37,7 +39,7 @@ export function PainelPage({ ym, mes }: Props) {
       <section className="card">
         <h2 className="card-title">Gastos por categoria</h2>
         {comGasto.length === 0 ? (
-          <div className="state">Nada pago ainda neste mês.</div>
+          <div className="state">Nenhum gasto neste mês.</div>
         ) : (
           <div className="list">
             {comGasto.map((c) => (
@@ -62,7 +64,7 @@ export function PainelPage({ ym, mes }: Props) {
             <tr>
               <th>Mês</th>
               <th>Receitas</th>
-              <th>Pagas</th>
+              <th>Gastos</th>
               <th>Saldo</th>
             </tr>
           </thead>
@@ -71,16 +73,16 @@ export function PainelPage({ ym, mes }: Props) {
               <tr key={r.ym} className={r.ym === ym ? "current" : ""}>
                 <td>{monthShort(r.ym)}</td>
                 <td>{r.receitas ? money(r.receitas) : "—"}</td>
-                <td>{r.pagas ? money(r.pagas) : "—"}</td>
+                <td>{r.gastos ? money(r.gastos) : "—"}</td>
                 <td className={r.saldo < 0 ? "neg" : r.saldo > 0 ? "pos" : ""}>
-                  {r.receitas || r.pagas ? money(r.saldo) : "—"}
+                  {r.receitas || r.gastos ? money(r.saldo) : "—"}
                 </td>
               </tr>
             ))}
             <tr>
               <td><strong>Total</strong></td>
               <td><strong>{money(ind.receitasAno)}</strong></td>
-              <td><strong>{money(ind.pagoAno)}</strong></td>
+              <td><strong>{money(ind.gastosAno)}</strong></td>
               <td className={ind.saldoAno < 0 ? "neg" : "pos"}><strong>{money(ind.saldoAno)}</strong></td>
             </tr>
           </tbody>
