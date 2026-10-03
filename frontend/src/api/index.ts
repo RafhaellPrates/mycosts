@@ -1,4 +1,4 @@
-import { http } from "./client.ts";
+import { baixar, http } from "./client.ts";
 import type {
   AuthResponse,
   Conta,
@@ -32,6 +32,9 @@ export const api = {
   criarLancamento: (body: LancamentoBody) => http.post<Lancamento>("/lancamentos", body),
   editarLancamento: (id: string, body: Partial<LancamentoBody>) => http.patch<Lancamento>(`/lancamentos/${id}`, body),
   apagarLancamento: (id: string) => http.delete<void>(`/lancamentos/${id}`),
+
+  // exportacao
+  baixarPlanilha: (ano: string) => baixar(`/export/${ano}.xlsx`, `Controle_Financeiro_${ano}.xlsx`),
 
   // cadastro
   categorias: () => http.get<{ categorias: string[] }>("/categorias"),

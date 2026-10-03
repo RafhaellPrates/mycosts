@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { api } from "../api/index.ts";
 import type { useMes } from "../hooks/useMes.ts";
 import { money, monthLabel, monthShort, pct } from "../lib/format.ts";
 
@@ -8,6 +10,22 @@ interface Props {
 
 /** Espelho da aba Painel: indicadores, gastos por categoria e resumo anual. */
 export function PainelPage({ ym, mes }: Props) {
+  const [baixando, setBaixando] = useState(false);
+  const [erroDownload, setErroDownload] = useState<string | null>(null);
+  const ano = ym.slice(0, 4);
+
+  async function baixarPlanilha() {
+    setErroDownload(null);
+    setBaixando(true);
+    try {
+      await api.baixarPlanilha(ano);
+    } catch (e) {
+      setErroDownload(e instanceof Error ? e.message : "Não foi possível baixar.");
+    } finally {
+      setBaixando(false);
+    }
+  }
+
   if (mes.loading && !mes.data) return <div className="state">Carregando painel…</div>;
   if (mes.error && !mes.data) return <div className="state error">{mes.error}</div>;
 
@@ -58,7 +76,7 @@ export function PainelPage({ ym, mes }: Props) {
       </section>
 
       <section className="card">
-        <h2 className="card-title">Resumo anual · {ym.slice(0, 4)}</h2>
+        <h2 className="card-title">Resumo anual · {ano}</h2>
         <table className="table">
           <thead>
             <tr>
@@ -87,6 +105,10 @@ export function PainelPage({ ym, mes }: Props) {
             </tr>
           </tbody>
         </table>
+        <button type="button" className="btn ghost painel-baixar" onClick={baixarPlanilha} disabled={baixando}>
+          {baixando ? "Gerando planilha…" : `Baixar planilha ${ano} (.xlsx)`}
+        </button>
+        {erroDownload && <p className="form-error">{erroDownload}</p>}
       </section>
     </>
   );

@@ -78,6 +78,7 @@ Rotas com prefixo `/api` (ex: `/api/auth/login`). Tudo fora de `/health` e `/api
 | GET | `/lancamentos?ym=AAAA-MM` | gastos avulsos do mes |
 | POST | `/lancamentos` | `{ data, descricao, categoria, valor, formaPagamento }` |
 | PATCH/DELETE | `/lancamentos/:id` | corrige ou apaga um avulso |
+| GET | `/export/AAAA.xlsx` | planilha do ano no layout do Controle_Financeiro (Cadastro, Controle Mensal, Receitas, Lançamentos, Painel) |
 
 Gasto avulso conta no mes da data da compra, inclusive no credito. Por isso a fatura (conta fixa da categoria Cartões) aparece nas contas a pagar, mas nao entra em Gastos no Painel.
 

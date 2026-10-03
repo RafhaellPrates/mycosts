@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import express, { Router } from "express";
 import { authRouter } from "./auth/routes.js";
 import { cadastroRouter } from "./cadastro/routes.js";
+import { exportRouter } from "./export/routes.js";
 import { lancamentosRouter } from "./lancamentos/routes.js";
 import { mesRouter } from "./mes/routes.js";
 import { HttpError, tratarErro } from "./http.js";
@@ -27,6 +28,7 @@ const api = Router();
 api.use("/auth", authRouter);
 api.use("/mes", mesRouter);
 api.use("/lancamentos", lancamentosRouter);
+api.use("/export", exportRouter);
 api.use(cadastroRouter);
 api.use((_req, _res) => {
   throw new HttpError(404, "Rota nao encontrada.");
