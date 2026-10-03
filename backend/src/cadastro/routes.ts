@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { exigirLogin } from "../auth/token.js";
-import { HttpError, dinheiro, usuarioDe, uuid } from "../http.js";
+import { HttpError, dinheiro, setDe, usuarioDe, uuid } from "../http.js";
 import { pool } from "../pool.js";
 import { CATEGORIAS } from "./categorias.js";
 
@@ -29,19 +29,6 @@ const fonteEdicao = fonteNova.partial().extend({ ativa: z.boolean().optional() }
 
 const CONTA_COLS = `id, nome, categoria, dia_venc as "diaVenc", previsto, ativa, ordem`;
 const FONTE_COLS = `id, nome, ativa, ordem`;
-
-/** Monta "col = $n" so com os campos enviados. */
-function setDe(campos: Record<string, unknown>, mapa: Record<string, string>, inicio: number) {
-  const sets: string[] = [];
-  const valores: unknown[] = [];
-  for (const [chave, coluna] of Object.entries(mapa)) {
-    if (campos[chave] === undefined) continue;
-    valores.push(campos[chave]);
-    sets.push(`${coluna} = $${inicio + valores.length - 1}`);
-  }
-  if (!sets.length) throw new HttpError(400, "Nada para alterar.");
-  return { sets: sets.join(", "), valores };
-}
 
 export const cadastroRouter = Router();
 cadastroRouter.use(["/categorias", "/contas", "/fontes"], exigirLogin);

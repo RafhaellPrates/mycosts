@@ -45,7 +45,8 @@ export function onSessaoExpirada(cb: () => void) {
 
 // ---- requests ----
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** fetch com token; resposta de erro vira ApiError com a mensagem do back. */
+async function send(path: string, init?: RequestInit): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -73,7 +74,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, msg);
   }
+  return res;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await send(path, init);
+  // 204 (DELETE) nao tem corpo.
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+/** Baixa um arquivo da API. Link comum nao serve: o token vai no header. */
+export async function baixar(path: string, nomeArquivo: string) {
+  const blob = await (await send(path)).blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Da tempo do navegador comecar o download antes de liberar a URL.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export const http = {
@@ -82,4 +104,5 @@ export const http = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

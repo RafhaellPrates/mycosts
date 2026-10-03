@@ -47,3 +47,16 @@ export const tratarErro: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);
   res.status(500).json({ erro: "Erro interno." });
 };
+
+/** Monta "col = $n" so com os campos enviados. */
+export function setDe(campos: Record<string, unknown>, mapa: Record<string, string>, inicio: number) {
+  const sets: string[] = [];
+  const valores: unknown[] = [];
+  for (const [chave, coluna] of Object.entries(mapa)) {
+    if (campos[chave] === undefined) continue;
+    valores.push(campos[chave]);
+    sets.push(`${coluna} = $${inicio + valores.length - 1}`);
+  }
+  if (!sets.length) throw new HttpError(400, "Nada para alterar.");
+  return { sets: sets.join(", "), valores };
+}

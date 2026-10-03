@@ -2,11 +2,11 @@ import type { Indicadores } from "../api/types.ts";
 import { money } from "../lib/format.ts";
 
 export function ResumoCard({ ind }: { ind: Indicadores }) {
-  const saldo = ind.receitasMes - ind.contasPagas;
+  const saldo = ind.receitasMes - ind.gastosMes;
   return (
     <section className="card">
       <div className="stat">
-        <span className="stat-label">Saldo do mês · receitas menos contas pagas</span>
+        <span className="stat-label">Saldo do mês · receitas menos gastos</span>
         <span className={`stat-value big ${saldo >= 0 ? "pos" : "neg"}`}>{money(saldo)}</span>
       </div>
       <div className="grid-2" style={{ marginTop: 12 }}>
@@ -15,8 +15,8 @@ export function ResumoCard({ ind }: { ind: Indicadores }) {
           <span className="stat-value pos">{money(ind.receitasMes)}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Contas pagas</span>
-          <span className="stat-value neg">{money(ind.contasPagas)}</span>
+          <span className="stat-label">Gastos</span>
+          <span className="stat-value neg">{money(ind.gastosMes)}</span>
         </div>
         <div className="stat">
           <span className="stat-label">Ainda em aberto</span>

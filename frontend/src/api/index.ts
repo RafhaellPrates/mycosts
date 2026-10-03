@@ -1,10 +1,12 @@
-import { http } from "./client.ts";
+import { baixar, http } from "./client.ts";
 import type {
   AuthResponse,
   Conta,
   ContaCadastro,
   ContaCadastroBody,
   Fonte,
+  Lancamento,
+  LancamentoBody,
   MesResponse,
   PatchContaBody,
   PatchReceitaBody,
@@ -25,6 +27,14 @@ export const api = {
     http.patch<Conta>(`/mes/${ym}/contas/${id}`, body),
   patchReceita: (ym: string, id: string, body: PatchReceitaBody) =>
     http.patch<Receita>(`/mes/${ym}/receitas/${id}`, body),
+
+  // lancamentos avulsos
+  criarLancamento: (body: LancamentoBody) => http.post<Lancamento>("/lancamentos", body),
+  editarLancamento: (id: string, body: Partial<LancamentoBody>) => http.patch<Lancamento>(`/lancamentos/${id}`, body),
+  apagarLancamento: (id: string) => http.delete<void>(`/lancamentos/${id}`),
+
+  // exportacao
+  baixarPlanilha: (ano: string) => baixar(`/export/${ano}.xlsx`, `Controle_Financeiro_${ano}.xlsx`),
 
   // cadastro
   categorias: () => http.get<{ categorias: string[] }>("/categorias"),

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { exigirLogin } from "../auth/token.js";
 import { HttpError, dinheiro, usuarioDe, uuid, ym } from "../http.js";
 import { pool } from "../pool.js";
+import { CATEGORIA_CARTOES } from "../cadastro/categorias.js";
+import { lancamentosDoMes } from "../lancamentos/routes.js";
 import { categorias, indicadores } from "./calculos.js";
 import type { Conta, MesResponse, Receita, ResumoMensal } from "./types.js";
 
@@ -14,6 +16,44 @@ const patchReceita = z.object({ valor: dinheiro.nullable() });
 
 const CONTA_MES = `c.id, c.nome, c.categoria, c.dia_venc as "diaVenc", c.previsto`;
 
+/**
+ * Receitas, gastos e saldo de cada mes do ano. Gastos = contas pagas sem as
+ * faturas de cartao + avulsos (ver calculos.ts).
+ */
+export async function resumoDoAno(usuarioId: string, ano: number): Promise<ResumoMensal[]> {
+  const { rows } = await pool.query<ResumoMensal>(
+    `with meses as (
+       select to_char(make_date($2::int, m, 1), 'YYYY-MM') as ym from generate_series(1, 12) m
+     ),
+     rec as (
+       select r.ym, sum(r.valor) as total from receitas r
+       join fontes_receita f on f.id = r.fonte_id
+       where f.usuario_id = $1 and r.ym like $2 || '-%' group by r.ym
+     ),
+     pag as (
+       select p.ym, sum(p.pago) as total from pagamentos p
+       join contas c on c.id = p.conta_id
+       where c.usuario_id = $1 and p.ym like $2 || '-%' and c.categoria <> $3 group by p.ym
+     ),
+     avu as (
+       select to_char(l.data, 'YYYY-MM') as ym, sum(l.valor) as total from lancamentos l
+       where l.usuario_id = $1 and l.data >= make_date($2::int, 1, 1) and l.data < make_date($2::int + 1, 1, 1)
+       group by 1
+     )
+     select m.ym,
+            coalesce(rec.total, 0) as receitas,
+            coalesce(pag.total, 0) + coalesce(avu.total, 0) as gastos,
+            coalesce(rec.total, 0) - coalesce(pag.total, 0) - coalesce(avu.total, 0) as saldo
+     from meses m
+     left join rec on rec.ym = m.ym
+     left join pag on pag.ym = m.ym
+     left join avu on avu.ym = m.ym
+     order by m.ym`,
+    [usuarioId, String(ano), CATEGORIA_CARTOES],
+  );
+  return rows;
+}
+
 export const mesRouter = Router();
 mesRouter.use(exigirLogin);
 
@@ -21,7 +61,7 @@ mesRouter.get("/:ym", async (req, res) => {
   const mes = ym.parse(req.params.ym);
   const usuario = usuarioDe(req);
 
-  const [contas, receitas, ano] = await Promise.all([
+  const [contas, receitas, lancamentos, ano] = await Promise.all([
     // Conta desativada ainda aparece nos meses em que teve lancamento.
     pool.query<Conta>(
       `select ${CONTA_MES}, p.pago, coalesce(p.situacao, '') as situacao
@@ -39,39 +79,18 @@ mesRouter.get("/:ym", async (req, res) => {
        order by f.ordem, f.criado_em`,
       [usuario, mes],
     ),
-    pool.query<ResumoMensal>(
-      `with meses as (
-         select to_char(make_date($2::int, m, 1), 'YYYY-MM') as ym from generate_series(1, 12) m
-       ),
-       rec as (
-         select r.ym, sum(r.valor) as total from receitas r
-         join fontes_receita f on f.id = r.fonte_id
-         where f.usuario_id = $1 and r.ym like $2 || '-%' group by r.ym
-       ),
-       pag as (
-         select p.ym, sum(p.pago) as total from pagamentos p
-         join contas c on c.id = p.conta_id
-         where c.usuario_id = $1 and p.ym like $2 || '-%' group by p.ym
-       )
-       select m.ym,
-              coalesce(rec.total, 0) as receitas,
-              coalesce(pag.total, 0) as pagas,
-              coalesce(rec.total, 0) - coalesce(pag.total, 0) as saldo
-       from meses m
-       left join rec on rec.ym = m.ym
-       left join pag on pag.ym = m.ym
-       order by m.ym`,
-      [usuario, mes.slice(0, 4)],
-    ),
+    lancamentosDoMes(usuario, mes),
+    resumoDoAno(usuario, Number(mes.slice(0, 4))),
   ]);
 
   const body: MesResponse = {
     ym: mes,
     contas: contas.rows,
     receitas: receitas.rows,
-    indicadores: indicadores(contas.rows, receitas.rows, ano.rows),
-    categorias: categorias(contas.rows),
-    resumoAnual: ano.rows,
+    lancamentos,
+    indicadores: indicadores(contas.rows, receitas.rows, lancamentos, ano),
+    categorias: categorias(contas.rows, lancamentos),
+    resumoAnual: ano,
   };
   res.json(body);
 });

@@ -85,7 +85,8 @@ button {
 
 .app-main {
   flex: 1;
-  padding: 12px 16px calc(env(safe-area-inset-bottom) + 84px);
+  /* espaco para a tabbar e o botao + flutuante */
+  padding: 12px 16px calc(env(safe-area-inset-bottom) + 148px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -272,7 +273,22 @@ button {
 .sheet-actions .btn { flex: 1; }
 .form-error { color: var(--neg); font-size: 13px; }
 .form-ok { color: var(--pos); font-size: 13px; }
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom) + 76px);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  z-index: 6;
+}
 .perfil-sair { width: 100%; color: var(--neg); }
+.painel-baixar { width: 100%; margin-top: 12px; }
 .app-ola { font-size: 14px; color: var(--muted); }
 
 /* ---- painel ---- */
