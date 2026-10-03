@@ -271,6 +271,9 @@ button {
 .sheet-actions { display: flex; gap: 10px; }
 .sheet-actions .btn { flex: 1; }
 .form-error { color: var(--neg); font-size: 13px; }
+.form-ok { color: var(--pos); font-size: 13px; }
+.perfil-sair { width: 100%; color: var(--neg); }
+.app-ola { font-size: 14px; color: var(--muted); }
 
 /* ---- painel ---- */
 .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
@@ -284,3 +287,40 @@ button {
 .table th:first-child, .table td:first-child { text-align: left; }
 .table thead th { border-top: 0; color: var(--muted); font-weight: 600; font-size: 12px; }
 .table tr.current td { background: var(--warn-soft); }
+
+/* ---- login ---- */
+.login {
+  min-height: 100dvh;
+  padding: calc(env(safe-area-inset-top) + 48px) 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+}
+.login-title { margin: 0; font-size: 28px; color: var(--brand); }
+.login-sub { margin: 0 0 8px; color: var(--muted); }
+.login-form { display: flex; flex-direction: column; gap: 14px; }
+.link { color: var(--brand); font-weight: 600; min-height: var(--tap); }
+
+/* ---- formularios ---- */
+/* 16px evita o zoom automatico do Safari ao focar o campo. */
+.text-input {
+  min-height: var(--tap);
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: var(--surface-2);
+  font-size: 16px;
+  outline: none;
+}
+.text-input:focus { border-color: var(--brand); }
+
+/* ---- cadastro ---- */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.card-head .card-title { margin: 0; }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: 14px; }
+.row.inativa { opacity: 0.55; }
+button.app-title { padding: 0; }

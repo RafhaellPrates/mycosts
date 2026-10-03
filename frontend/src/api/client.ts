@@ -1,5 +1,7 @@
 export const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
+const TOKEN_KEY = "mycosts.token";
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -8,12 +10,50 @@ export class ApiError extends Error {
   }
 }
 
+// ---- token ----
+
+let token: string | null = lerToken();
+let aoExpirar: (() => void) | null = null;
+
+function lerToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getToken(): string | null {
+  return token;
+}
+
+export function setToken(novo: string | null) {
+  token = novo;
+  try {
+    if (novo) localStorage.setItem(TOKEN_KEY, novo);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* modo privado do Safari: fica so em memoria */
+  }
+}
+
+/** Chamado quando o back responde 401 com token: sessao expirou. */
+export function onSessaoExpirada(cb: () => void) {
+  aoExpirar = cb;
+}
+
+// ---- requests ----
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
     });
   } catch {
     throw new ApiError(0, "Sem conexão com o servidor.");
@@ -21,10 +61,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     let msg = `Erro ${res.status}`;
     try {
-      const body = (await res.json()) as { error?: string; message?: string };
-      msg = body.error ?? body.message ?? msg;
+      const body = (await res.json()) as { erro?: string };
+      msg = body.erro ?? msg;
     } catch {
       /* corpo nao e json */
+    }
+    if (res.status === 401 && token) {
+      setToken(null);
+      aoExpirar?.();
     }
     throw new ApiError(res.status, msg);
   }

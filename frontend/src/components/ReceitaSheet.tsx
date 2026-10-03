@@ -45,7 +45,7 @@ export function ReceitaSheet({ receita, mesLabel, onClose, onSave }: Props) {
           </button>
         )}
         <button type="button" className="btn" onClick={() => submit()} disabled={saving}>
-          {saving ? "Salvando…" : "Salvar na planilha"}
+          {saving ? "Salvando…" : "Salvar"}
         </button>
       </div>
     </Sheet>

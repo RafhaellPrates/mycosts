@@ -1,17 +1,40 @@
 import { http } from "./client.ts";
-import { mockApi } from "./mock.ts";
-import type { Api, Conta, MesResponse, PatchContaBody, PatchReceitaBody, Receita } from "./types.ts";
+import type {
+  AuthResponse,
+  Conta,
+  ContaCadastro,
+  ContaCadastroBody,
+  Fonte,
+  MesResponse,
+  PatchContaBody,
+  PatchReceitaBody,
+  PerfilBody,
+  Receita,
+  Usuario,
+} from "./types.ts";
 
-const realApi: Api = {
-  getMes: (ym) => http.get<MesResponse>(`/mes/${ym}`),
-  patchConta: (ym, linha, body: PatchContaBody) =>
-    http.patch<Conta>(`/mes/${ym}/contas/${linha}`, body),
-  patchReceita: (ym, linha, body: PatchReceitaBody) =>
-    http.patch<Receita>(`/mes/${ym}/receitas/${linha}`, body),
+export const api = {
+  // auth
+  login: (email: string, senha: string) => http.post<AuthResponse>("/auth/login", { email, senha }),
+  me: () => http.get<{ usuario: Usuario }>("/auth/me"),
+  editarPerfil: (body: PerfilBody) => http.patch<{ usuario: Usuario }>("/auth/me", body),
+
+  // mes
+  getMes: (ym: string) => http.get<MesResponse>(`/mes/${ym}`),
+  patchConta: (ym: string, id: string, body: PatchContaBody) =>
+    http.patch<Conta>(`/mes/${ym}/contas/${id}`, body),
+  patchReceita: (ym: string, id: string, body: PatchReceitaBody) =>
+    http.patch<Receita>(`/mes/${ym}/receitas/${id}`, body),
+
+  // cadastro
+  categorias: () => http.get<{ categorias: string[] }>("/categorias"),
+  contas: () => http.get<{ contas: ContaCadastro[] }>("/contas"),
+  criarConta: (body: ContaCadastroBody) => http.post<ContaCadastro>("/contas", body),
+  editarConta: (id: string, body: Partial<ContaCadastroBody> & { ativa?: boolean }) =>
+    http.patch<ContaCadastro>(`/contas/${id}`, body),
+  fontes: () => http.get<{ fontes: Fonte[] }>("/fontes"),
+  criarFonte: (nome: string) => http.post<Fonte>("/fontes", { nome }),
+  editarFonte: (id: string, body: { nome?: string; ativa?: boolean }) => http.patch<Fonte>(`/fontes/${id}`, body),
 };
-
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
-
-export const api: Api = USE_MOCK ? mockApi : realApi;
 
 export type { Conta, MesResponse, Receita } from "./types.ts";

@@ -10,8 +10,7 @@ interface State {
 
 /**
  * Carrega o mes e expoe as duas acoes de escrita. Depois de um PATCH
- * recarrega o mes inteiro: os indicadores vem de formula da planilha,
- * entao so o servidor sabe o valor novo.
+ * recarrega o mes inteiro: os indicadores sao calculados no servidor.
  */
 export function useMes(ym: string) {
   const [state, setState] = useState<State>({ data: null, loading: true, error: null });
@@ -35,16 +34,16 @@ export function useMes(ym: string) {
   }, [load]);
 
   const salvarConta = useCallback(
-    async (linha: number, body: PatchContaBody) => {
-      await api.patchConta(ym, linha, body);
+    async (id: string, body: PatchContaBody) => {
+      await api.patchConta(ym, id, body);
       await load(true);
     },
     [ym, load],
   );
 
   const salvarReceita = useCallback(
-    async (linha: number, body: PatchReceitaBody) => {
-      await api.patchReceita(ym, linha, body);
+    async (id: string, body: PatchReceitaBody) => {
+      await api.patchReceita(ym, id, body);
       await load(true);
     },
     [ym, load],
