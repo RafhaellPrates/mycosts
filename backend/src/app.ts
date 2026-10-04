@@ -9,6 +9,7 @@ import { exportRouter } from "./export/routes.js";
 import { lancamentosRouter } from "./lancamentos/routes.js";
 import { mesRouter } from "./mes/routes.js";
 import { HttpError, tratarErro } from "./http.js";
+import { pool } from "./pool.js";
 
 // Build do front (npm run build em frontend/). Funciona tanto de src (tsx)
 // quanto de dist (node): os dois ficam dois niveis abaixo da raiz do repo.
@@ -20,8 +21,17 @@ export const app = express();
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "20kb" }));
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", uptime: Math.round(process.uptime()) });
+// O cron externo chama a cada 10 min: mantem o Render acordado e, com o
+// select 1, conta como uso do banco para o Supabase free nao pausar o projeto
+// (pausa apos 7 dias sem atividade). Banco fora = 503, o cron acusa a falha.
+app.get("/health", async (_req, res) => {
+  const uptime = Math.round(process.uptime());
+  try {
+    await pool.query("select 1");
+    res.json({ status: "ok", banco: "ok", uptime });
+  } catch {
+    res.status(503).json({ status: "erro", banco: "fora", uptime });
+  }
 });
 
 // Front e API no mesmo servico e na mesma origem: sem CORS. Em dev o Vite
