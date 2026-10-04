@@ -22,6 +22,8 @@ export interface Receita {
   /** Previsto por mes no cadastro da fonte. */
   previsto: number;
   valor: number | null;
+  /** Valor veio do previsto (nada lancado no mes). */
+  automatico: boolean;
 }
 
 export const FORMAS_PAGAMENTO = ["Crédito", "Débito", "Pix", "Dinheiro"] as const;

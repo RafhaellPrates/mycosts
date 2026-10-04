@@ -19,6 +19,8 @@ export interface Receita {
   /** Previsto por mes no cadastro da fonte. */
   previsto: number;
   valor: number | null;
+  /** Valor veio do previsto (nada lancado no mes). */
+  automatico: boolean;
 }
 
 /** Gasto avulso. Conta no mes da data, mesmo no credito. */

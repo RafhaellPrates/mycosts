@@ -6,6 +6,7 @@ import { pool } from "../pool.js";
 import { CATEGORIA_CARTOES } from "../cadastro/categorias.js";
 import { lancamentosDoMes } from "../lancamentos/routes.js";
 import { categorias, indicadores } from "./calculos.js";
+import { valorReceita } from "./receitaAutomatica.js";
 import type { Conta, MesResponse, Receita, ResumoMensal } from "./types.js";
 
 const patchConta = z.object({
@@ -26,9 +27,11 @@ export async function resumoDoAno(usuarioId: string, ano: number): Promise<Resum
        select to_char(make_date($2::int, m, 1), 'YYYY-MM') as ym from generate_series(1, 12) m
      ),
      rec as (
-       select r.ym, sum(r.valor) as total from receitas r
-       join fontes_receita f on f.id = r.fonte_id
-       where f.usuario_id = $1 and r.ym like $2 || '-%' group by r.ym
+       select m.ym, sum(${valorReceita("m.ym")}) as total
+       from meses m
+       cross join fontes_receita f
+       left join receitas r on r.fonte_id = f.id and r.ym = m.ym
+       where f.usuario_id = $1 group by m.ym
      ),
      pag as (
        select p.ym, sum(p.pago) as total from pagamentos p
@@ -76,7 +79,8 @@ mesRouter.get("/:ym", async (req, res) => {
       [usuario, mes],
     ),
     pool.query<Receita>(
-      `select f.id, f.nome as fonte, f.previsto, r.valor
+      `select f.id, f.nome as fonte, f.previsto, ${valorReceita("$2")} as valor,
+              r.valor is null and ${valorReceita("$2")} is not null as automatico
        from fontes_receita f
        left join receitas r on r.fonte_id = f.id and r.ym = $2
        where f.usuario_id = $1 and (f.ativa or r.fonte_id is not null)
@@ -138,7 +142,7 @@ mesRouter.patch("/:ym/receitas/:id", async (req, res) => {
        on conflict (fonte_id, ym) do update set valor = excluded.valor, atualizado_em = now()
        returning valor
      )
-     select f.id, f.nome as fonte, f.previsto, up.valor from f, up`,
+     select f.id, f.nome as fonte, f.previsto, up.valor, false as automatico from f, up`,
     [id, usuarioDe(req), mes, valor],
   );
   if (!rows[0]) throw new HttpError(404, "Fonte nao encontrada.");

@@ -34,10 +34,11 @@ export function MesPage({ ym, mes }: Props) {
   }
 
   async function limparReceita(r: Receita) {
-    if (!confirm(`Limpar a receita "${r.fonte}" de ${label}?`)) return;
+    // 0, nao vazio: vazio faria a receita automatica (previsto) voltar.
+    if (!confirm(`Marcar "${r.fonte}" como não recebida em ${label}?`)) return;
     try {
-      await mes.salvarReceita(r.id, { valor: null });
-      notificar.sucesso("Receita limpa.");
+      await mes.salvarReceita(r.id, { valor: 0 });
+      notificar.sucesso("Receita marcada como não recebida.");
     } catch (e) {
       notificar.falha(e, "Não foi possível limpar.");
     }
@@ -141,14 +142,18 @@ export function MesPage({ ym, mes }: Props) {
             <div key={r.id} className="row row-com-acoes">
               <div className="row-main">
                 <span className="row-name">{r.fonte}</span>
-                {r.previsto > 0 && <span className="row-sub">previsto {money(r.previsto)}</span>}
+                {r.automatico ? (
+                  <span className="row-sub">automática · previsto do cadastro</span>
+                ) : (
+                  r.previsto > 0 && <span className="row-sub">previsto {money(r.previsto)}</span>
+                )}
               </div>
               <div className="row-side">
                 <span className={`row-value ${r.valor ? "pos" : ""}`}>{money(r.valor)}</span>
                 <AcoesLinha
                   nome={r.fonte}
                   onEditar={() => setReceitaAberta(r)}
-                  onApagar={r.valor !== null ? () => limparReceita(r) : undefined}
+                  onApagar={r.valor ? () => limparReceita(r) : undefined}
                 />
               </div>
             </div>
