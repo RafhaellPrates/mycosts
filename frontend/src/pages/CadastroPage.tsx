@@ -1,9 +1,12 @@
+import { Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/index.ts";
 import type { ContaCadastro, Fonte } from "../api/types.ts";
+import { AcoesLinha } from "../components/AcoesLinha.tsx";
 import { ContaCadastroSheet } from "../components/ContaCadastroSheet.tsx";
 import { FonteSheet } from "../components/FonteSheet.tsx";
 import { money } from "../lib/format.ts";
+import { notificar } from "../lib/notificar.ts";
 
 interface Props {
   /** Avisa o App para recarregar o mes depois de mudar o cadastro. */
@@ -39,6 +42,23 @@ export function CadastroPage({ onMudou }: Props) {
     void carregar();
   }, [carregar]);
 
+  async function apagar(tipo: "conta" | "fonte", item: ContaCadastro | Fonte) {
+    const historico = tipo === "conta" ? "os pagamentos dela" : "os valores recebidos dela";
+    const ok = confirm(
+      `Apagar "${item.nome}"? Isso apaga também ${historico} em todos os meses.
+
+Para manter o histórico, use Desativar no formulário.`,
+    );
+    if (!ok) return;
+    try {
+      await (tipo === "conta" ? api.apagarConta(item.id) : api.apagarFonte(item.id));
+      notificar.sucesso(tipo === "conta" ? "Conta apagada." : "Fonte apagada.");
+      await depoisDeSalvar();
+    } catch (e) {
+      notificar.falha(e, "Não foi possível apagar.");
+    }
+  }
+
   async function depoisDeSalvar() {
     await carregar();
     onMudou();
@@ -64,7 +84,8 @@ export function CadastroPage({ onMudou }: Props) {
         <div className="card-head">
           <h2 className="card-title">Contas fixas · {money(previstoMes)}/mês</h2>
           <button type="button" className="btn small" onClick={() => setAberto({ tipo: "conta", conta: null })}>
-            + Conta
+            <Plus aria-hidden="true" />
+            Conta
           </button>
         </div>
         {contas.length === 0 ? (
@@ -72,12 +93,7 @@ export function CadastroPage({ onMudou }: Props) {
         ) : (
           <div className="list">
             {contas.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`row ${c.ativa ? "" : "inativa"}`}
-                onClick={() => setAberto({ tipo: "conta", conta: c })}
-              >
+              <div key={c.id} className={`row row-com-acoes ${c.ativa ? "" : "inativa"}`}>
                 <div className="row-main">
                   <span className="row-name">{c.nome}</span>
                   <span className="row-sub">
@@ -86,10 +102,15 @@ export function CadastroPage({ onMudou }: Props) {
                   </span>
                 </div>
                 <div className="row-side">
-                  <span className="row-value">{money(c.previsto)}</span>
                   {!c.ativa && <span className="badge">Inativa</span>}
+                  <span className="row-value">{money(c.previsto)}</span>
+                  <AcoesLinha
+                    nome={c.nome}
+                    onEditar={() => setAberto({ tipo: "conta", conta: c })}
+                    onApagar={() => void apagar("conta", c)}
+                  />
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -97,9 +118,12 @@ export function CadastroPage({ onMudou }: Props) {
 
       <section className="card">
         <div className="card-head">
-          <h2 className="card-title">Fontes de receita</h2>
+          <h2 className="card-title">
+            Fontes de receita · {money(fontes.filter((f) => f.ativa).reduce((a, f) => a + f.previsto, 0))}/mês
+          </h2>
           <button type="button" className="btn small" onClick={() => setAberto({ tipo: "fonte", fonte: null })}>
-            + Fonte
+            <Plus aria-hidden="true" />
+            Fonte
           </button>
         </div>
         {fontes.length === 0 ? (
@@ -107,21 +131,20 @@ export function CadastroPage({ onMudou }: Props) {
         ) : (
           <div className="list">
             {fontes.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className={`row ${f.ativa ? "" : "inativa"}`}
-                onClick={() => setAberto({ tipo: "fonte", fonte: f })}
-              >
+              <div key={f.id} className={`row row-com-acoes ${f.ativa ? "" : "inativa"}`}>
                 <div className="row-main">
                   <span className="row-name">{f.nome}</span>
                 </div>
-                {!f.ativa && (
-                  <div className="row-side">
-                    <span className="badge">Inativa</span>
-                  </div>
-                )}
-              </button>
+                <div className="row-side">
+                  {!f.ativa && <span className="badge">Inativa</span>}
+                  <span className="row-value">{money(f.previsto)}</span>
+                  <AcoesLinha
+                    nome={f.nome}
+                    onEditar={() => setAberto({ tipo: "fonte", fonte: f })}
+                    onApagar={() => void apagar("fonte", f)}
+                  />
+                </div>
+              </div>
             ))}
           </div>
         )}

@@ -3,6 +3,7 @@ import type { Conta, PatchContaBody, Situacao } from "../api/types.ts";
 import { money, parseMoney, toInput } from "../lib/format.ts";
 import { MoneyInput } from "./MoneyInput.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { notificar } from "../lib/notificar.ts";
 
 interface Props {
   conta: Conta;
@@ -22,25 +23,24 @@ export function ContaSheet({ conta, mesLabel, onClose, onSave }: Props) {
   const [valor, setValor] = useState(toInput(conta.pago ?? conta.previsto));
   const [situacao, setSituacao] = useState<Situacao>(conta.situacao === "" ? "Pago" : conta.situacao);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    setError(null);
     const n = situacao === "Não se aplica" ? null : parseMoney(valor);
     if (situacao === "Pago" && (n === null || n < 0)) {
-      setError("Informe o valor pago.");
+      notificar.erro("Informe o valor pago.");
       return;
     }
     if (n !== null && n < 0) {
-      setError("Valor não pode ser negativo.");
+      notificar.erro("Valor não pode ser negativo.");
       return;
     }
     setSaving(true);
     try {
       await onSave({ pago: n, situacao });
+      notificar.sucesso(situacao === "Pago" ? `${conta.nome}: baixa salva.` : `${conta.nome}: ${situacao.toLowerCase()}.`);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Não foi possível salvar.");
+      notificar.falha(e, "Não foi possível salvar.");
     } finally {
       setSaving(false);
     }
@@ -58,7 +58,6 @@ export function ContaSheet({ conta, mesLabel, onClose, onSave }: Props) {
       {situacao !== "Não se aplica" && (
         <MoneyInput id="valor-pago" label="Valor pago" value={valor} onChange={setValor} autoFocus />
       )}
-      {error && <p className="form-error">{error}</p>}
       <div className="sheet-actions">
         <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>
           Cancelar

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api/index.ts";
 import type { AuthResponse } from "../api/types.ts";
+import { notificar } from "../lib/notificar.ts";
 
 interface Props {
   onEntrar: (auth: AuthResponse) => void;
@@ -11,19 +12,17 @@ interface Props {
  * npm run criar-usuario. O back cuida de senha (bcrypt) e token (JWT).
  */
 export function LoginPage({ onEntrar }: Props) {
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setErro(null);
     setEnviando(true);
     try {
-      onEntrar(await api.login(email, senha));
+      onEntrar(await api.login(login.trim(), senha));
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível entrar.");
+      notificar.falha(e, "Não foi possível entrar.");
     } finally {
       setEnviando(false);
     }
@@ -36,16 +35,17 @@ export function LoginPage({ onEntrar }: Props) {
 
       <form className="card login-form" onSubmit={submit}>
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="login">Email ou nome</label>
           <input
-            id="email"
+            id="login"
             className="text-input"
-            type="email"
-            autoComplete="email"
+            autoComplete="username"
             autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
           />
         </div>
         <div className="field">
@@ -60,7 +60,6 @@ export function LoginPage({ onEntrar }: Props) {
             onChange={(e) => setSenha(e.target.value)}
           />
         </div>
-        {erro && <p className="form-error">{erro}</p>}
         <button type="submit" className="btn" disabled={enviando}>
           {enviando ? "Aguarde…" : "Entrar"}
         </button>

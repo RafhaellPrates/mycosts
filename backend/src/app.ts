@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import express, { Router } from "express";
+import { adminRouter } from "./admin/routes.js";
 import { authRouter } from "./auth/routes.js";
 import { cadastroRouter } from "./cadastro/routes.js";
+import { cartoesRouter } from "./cartoes/routes.js";
 import { exportRouter } from "./export/routes.js";
 import { lancamentosRouter } from "./lancamentos/routes.js";
 import { mesRouter } from "./mes/routes.js";
@@ -26,8 +28,10 @@ app.get("/health", (_req, res) => {
 // repassa /api para ca (frontend/vite.config.ts).
 const api = Router();
 api.use("/auth", authRouter);
+api.use("/admin", adminRouter);
 api.use("/mes", mesRouter);
 api.use("/lancamentos", lancamentosRouter);
+api.use("/cartoes", cartoesRouter);
 api.use("/export", exportRouter);
 api.use(cadastroRouter);
 api.use((_req, _res) => {

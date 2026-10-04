@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api/index.ts";
 import type { Usuario } from "../api/types.ts";
+import { AparenciaCard } from "../components/AparenciaCard.tsx";
+import { notificar } from "../lib/notificar.ts";
 
 interface Props {
   usuario: Usuario;
@@ -8,11 +10,12 @@ interface Props {
   onSair: () => void;
 }
 
-/** Dados da conta: nome, email, troca de senha e sair. */
+/** Dados da conta: nome, email, aparencia, troca de senha e sair. */
 export function PerfilPage({ usuario, onAtualizado, onSair }: Props) {
   return (
     <>
       <DadosCard usuario={usuario} onAtualizado={onAtualizado} />
+      <AparenciaCard usuario={usuario} onAtualizado={onAtualizado} />
       <SenhaCard />
       <section className="card">
         <button type="button" className="btn ghost perfil-sair" onClick={() => confirm(`Sair de ${usuario.email}?`) && onSair()}>
@@ -28,14 +31,12 @@ function DadosCard({ usuario, onAtualizado }: Omit<Props, "onSair">) {
   const [email, setEmail] = useState(usuario.email);
   const [senhaAtual, setSenhaAtual] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
   const trocaEmail = email.trim().toLowerCase() !== usuario.email;
   const mudou = nome.trim() !== usuario.nome || trocaEmail;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setMsg(null);
     setEnviando(true);
     try {
       const { usuario: novo } = await api.editarPerfil({
@@ -45,9 +46,9 @@ function DadosCard({ usuario, onAtualizado }: Omit<Props, "onSair">) {
       onAtualizado(novo);
       setEmail(novo.email);
       setSenhaAtual("");
-      setMsg({ ok: true, texto: "Perfil salvo." });
+      notificar.sucesso("Perfil salvo.");
     } catch (e) {
-      setMsg({ ok: false, texto: e instanceof Error ? e.message : "Não foi possível salvar." });
+      notificar.falha(e, "Não foi possível salvar.");
     } finally {
       setEnviando(false);
     }
@@ -96,7 +97,6 @@ function DadosCard({ usuario, onAtualizado }: Omit<Props, "onSair">) {
             />
           </div>
         )}
-        {msg && <p className={msg.ok ? "form-ok" : "form-error"}>{msg.texto}</p>}
         <button type="submit" className="btn" disabled={enviando || !mudou}>
           {enviando ? "Salvando…" : "Salvar"}
         </button>
@@ -110,22 +110,20 @@ function SenhaCard() {
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setMsg(null);
-    if (novaSenha.length < 8) return setMsg({ ok: false, texto: "Senha precisa de pelo menos 8 caracteres." });
-    if (novaSenha !== confirmacao) return setMsg({ ok: false, texto: "As senhas não conferem." });
+    if (novaSenha.length < 8) return notificar.erro("Senha precisa de pelo menos 8 caracteres.");
+    if (novaSenha !== confirmacao) return notificar.erro("As senhas não conferem.");
     setEnviando(true);
     try {
       await api.editarPerfil({ senhaAtual, novaSenha });
       setSenhaAtual("");
       setNovaSenha("");
       setConfirmacao("");
-      setMsg({ ok: true, texto: "Senha trocada." });
+      notificar.sucesso("Senha trocada.");
     } catch (e) {
-      setMsg({ ok: false, texto: e instanceof Error ? e.message : "Não foi possível trocar a senha." });
+      notificar.falha(e, "Não foi possível trocar a senha.");
     } finally {
       setEnviando(false);
     }
@@ -171,7 +169,6 @@ function SenhaCard() {
             onChange={(e) => setConfirmacao(e.target.value)}
           />
         </div>
-        {msg && <p className={msg.ok ? "form-ok" : "form-error"}>{msg.texto}</p>}
         <button type="submit" className="btn" disabled={enviando}>
           {enviando ? "Salvando…" : "Trocar senha"}
         </button>

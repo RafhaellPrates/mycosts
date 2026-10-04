@@ -39,13 +39,13 @@ npm run dev            # abrir http://localhost:5173 (back em 3000)
 
 ## Acessos
 
-O app nao tem tela de criar conta. Cada pessoa e criada pelo terminal, na raiz:
+Dois niveis: admin e usuario. O admin cria, edita (inclusive a senha) e apaga acessos na aba Acessos do app. Pelo terminal, na raiz, da para criar o primeiro admin ou um acesso de emergencia:
 
 ```bash
-npm run criar-usuario  # pede email, nome e senha
+npm run criar-usuario  # pede email, nome, se e admin e senha
 ```
 
-Rodar de novo com um email que ja existe oferece redefinir a senha. Email e unico: nao da para ter duas contas com o mesmo. Nome, email e senha podem ser trocados depois na aba Perfil do app.
+Rodar de novo com um email que ja existe oferece redefinir a senha. Email e nome sao unicos, e a pessoa entra com qualquer um dos dois. Nome, email, senha, tema e cores ficam na aba Perfil; a aparencia e salva na conta e volta em qualquer aparelho.
 
 Importar a planilha anual para uma conta (dentro de `backend`; cria a conta se nao existir, `--desde` ignora meses anteriores):
 
@@ -64,20 +64,25 @@ Rotas com prefixo `/api` (ex: `/api/auth/login`). Tudo fora de `/health` e `/api
 
 | Metodo | Rota | O que faz |
 | --- | --- | --- |
-| POST | `/auth/login` | `{ email, senha }` e devolve token |
+| POST | `/auth/login` | `{ login, senha }` (login = email ou nome) e devolve token |
 | GET | `/auth/me` | usuario logado `{ id, email, nome }` |
-| PATCH | `/auth/me` | edita `{ nome?, email?, novaSenha? }`; trocar email ou senha exige `senhaAtual` |
+| PATCH | `/auth/me` | edita `{ nome?, email?, novaSenha?, preferencias? }`; trocar email ou senha exige `senhaAtual` |
+| GET/POST | `/admin/usuarios` | so admin: lista e cria acessos |
+| PATCH/DELETE | `/admin/usuarios/:id` | so admin: edita (nome, email, senha, papel) ou apaga |
 | GET | `/categorias` | categorias aceitas nas contas |
 | GET/POST | `/contas` | contas fixas (cadastro) |
 | PATCH | `/contas/:id` | edita ou desativa (`ativa: false`) |
 | GET/POST | `/fontes` | fontes de receita |
 | PATCH | `/fontes/:id` | edita ou desativa |
+| DELETE | `/contas/:id`, `/fontes/:id` | apaga com o historico (desativar mantem) |
 | GET | `/mes/:ym` | contas, receitas, indicadores e resumo do ano (`ym` = `AAAA-MM`) |
 | PATCH | `/mes/:ym/contas/:id` | `{ pago, situacao }` do mes |
 | PATCH | `/mes/:ym/receitas/:id` | `{ valor }` do mes |
 | GET | `/lancamentos?ym=AAAA-MM` | gastos avulsos do mes |
-| POST | `/lancamentos` | `{ data, descricao, categoria, valor, formaPagamento }` |
+| POST | `/lancamentos` | `{ data, descricao, categoria, valor, formaPagamento, cartaoId?, parcelas? }`; parcelado: valor e o total |
 | PATCH/DELETE | `/lancamentos/:id` | corrige ou apaga um avulso |
+| GET/POST | `/cartoes` | cartoes com fatura aberta, prazo de uma compra hoje e o recomendado do dia |
+| PATCH/DELETE | `/cartoes/:id` | edita ou apaga (as compras ficam, sem cartao) |
 | GET | `/export/AAAA.xlsx` | planilha do ano no layout do Controle_Financeiro (Cadastro, Controle Mensal, Receitas, Lançamentos, Painel) |
 
 Gasto avulso conta no mes da data da compra, inclusive no credito. Por isso a fatura (conta fixa da categoria Cartões) aparece nas contas a pagar, mas nao entra em Gastos no Painel.

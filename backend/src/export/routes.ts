@@ -4,6 +4,7 @@ import { exigirLogin } from "../auth/token.js";
 import { usuarioDe } from "../http.js";
 import { resumoDoAno } from "../mes/routes.js";
 import type { Lancamento } from "../mes/types.js";
+import { valorReceita } from "../mes/receitaAutomatica.js";
 import { pool } from "../pool.js";
 import { gerarPlanilha, type DadosAno } from "./planilha.js";
 
@@ -46,10 +47,13 @@ exportRouter.get("/:arquivo", async (req, res) => {
       [usuario, prefixo],
     ),
     pool.query<DadosAno["receitas"][number]>(
-      `select r.fonte_id as "fonteId", r.ym, r.valor
-       from receitas r join fontes_receita f on f.id = r.fonte_id
-       where f.usuario_id = $1 and r.ym like $2`,
-      [usuario, prefixo],
+      // Mesmo valor da tela do mes, inclusive receita automatica.
+      `select f.id as "fonteId", m.ym, ${valorReceita("m.ym")} as valor
+       from fontes_receita f
+       cross join (select to_char(make_date($2::int, k, 1), 'YYYY-MM') as ym from generate_series(1, 12) k) m
+       left join receitas r on r.fonte_id = f.id and r.ym = m.ym
+       where f.usuario_id = $1`,
+      [usuario, ano],
     ),
     pool.query<Lancamento>(
       `select id, to_char(data, 'YYYY-MM-DD') as data, descricao, categoria, valor,
