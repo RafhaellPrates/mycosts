@@ -4,6 +4,7 @@ import type { ContaCadastro } from "../api/types.ts";
 import { parseMoney, toInput } from "../lib/format.ts";
 import { MoneyInput } from "./MoneyInput.tsx";
 import { Sheet } from "./Sheet.tsx";
+import { notificar } from "../lib/notificar.ts";
 
 interface Props {
   /** null = conta nova. */
@@ -19,17 +20,16 @@ export function ContaCadastroSheet({ conta, categorias, onClose, onSalvo }: Prop
   const [dia, setDia] = useState(conta?.diaVenc ? String(conta.diaVenc) : "");
   const [previsto, setPrevisto] = useState(toInput(conta?.previsto ?? null));
   const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
 
-  async function executar(acao: () => Promise<unknown>) {
-    setErro(null);
+  async function executar(acao: () => Promise<unknown>, sucesso: string) {
     setSalvando(true);
     try {
       await acao();
       await onSalvo();
+      notificar.sucesso(sucesso);
       onClose();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
+      notificar.falha(e, "Não foi possível salvar.");
     } finally {
       setSalvando(false);
     }
@@ -38,13 +38,13 @@ export function ContaCadastroSheet({ conta, categorias, onClose, onSalvo }: Prop
   function salvar() {
     const valor = parseMoney(previsto) ?? 0;
     const diaVenc = dia.trim() ? Number(dia) : null;
-    if (!nome.trim()) return setErro("Informe o nome.");
-    if (valor < 0) return setErro("Valor não pode ser negativo.");
+    if (!nome.trim()) return notificar.erro("Informe o nome.");
+    if (valor < 0) return notificar.erro("Valor não pode ser negativo.");
     if (diaVenc !== null && (!Number.isInteger(diaVenc) || diaVenc < 1 || diaVenc > 31)) {
-      return setErro("Dia do vencimento deve ser de 1 a 31.");
+      return notificar.erro("Dia do vencimento deve ser de 1 a 31.");
     }
     const body = { nome: nome.trim(), categoria, diaVenc, previsto: valor };
-    void executar(() => (conta ? api.editarConta(conta.id, body) : api.criarConta(body)));
+    void executar(() => (conta ? api.editarConta(conta.id, body) : api.criarConta(body)), conta ? "Conta atualizada." : "Conta criada.");
   }
 
   return (
@@ -77,14 +77,15 @@ export function ContaCadastroSheet({ conta, categorias, onClose, onSalvo }: Prop
         </div>
       </div>
       <MoneyInput id="conta-previsto" label="Valor previsto por mês" value={previsto} onChange={setPrevisto} />
-      {erro && <p className="form-error">{erro}</p>}
       <div className="sheet-actions">
         {conta && (
           <button
             type="button"
             className="btn ghost"
             disabled={salvando}
-            onClick={() => void executar(() => api.editarConta(conta.id, { ativa: !conta.ativa }))}
+            onClick={() =>
+              void executar(() => api.editarConta(conta.id, { ativa: !conta.ativa }), conta.ativa ? "Conta desativada." : "Conta reativada.")
+            }
           >
             {conta.ativa ? "Desativar" : "Reativar"}
           </button>

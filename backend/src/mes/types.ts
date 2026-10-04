@@ -16,6 +16,8 @@ export interface Conta {
 export interface Receita {
   id: string;
   fonte: string;
+  /** Previsto por mes no cadastro da fonte. */
+  previsto: number;
   valor: number | null;
 }
 
@@ -26,8 +28,15 @@ export interface Lancamento {
   data: string;
   descricao: string;
   categoria: string;
+  /** Valor que cai no mes (a parcela, se parcelada). */
   valor: number;
   formaPagamento: "Crédito" | "Débito" | "Pix" | "Dinheiro";
+  cartaoId: string | null;
+  /** 1 = a vista. */
+  parcelas: number;
+  /** Qual parcela cai neste mes (1..parcelas). */
+  parcela: number;
+  valorTotal: number;
 }
 
 export interface Indicadores {

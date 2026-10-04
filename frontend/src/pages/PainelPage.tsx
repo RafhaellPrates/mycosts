@@ -1,26 +1,30 @@
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api/index.ts";
+import { BarrasAno } from "../components/charts/BarrasAno.tsx";
+import { PizzaCategorias } from "../components/charts/PizzaCategorias.tsx";
+import { CartaoDoDia } from "../components/CartaoDoDia.tsx";
 import type { useMes } from "../hooks/useMes.ts";
 import { money, monthLabel, monthShort, pct } from "../lib/format.ts";
+import { notificar } from "../lib/notificar.ts";
 
 interface Props {
   ym: string;
   mes: ReturnType<typeof useMes>;
 }
 
-/** Espelho da aba Painel: indicadores, gastos por categoria e resumo anual. */
+/** Painel: indicadores do mes, graficos (ano e categorias) e resumo anual. */
 export function PainelPage({ ym, mes }: Props) {
   const [baixando, setBaixando] = useState(false);
-  const [erroDownload, setErroDownload] = useState<string | null>(null);
   const ano = ym.slice(0, 4);
 
   async function baixarPlanilha() {
-    setErroDownload(null);
     setBaixando(true);
     try {
       await api.baixarPlanilha(ano);
+      notificar.sucesso(`Planilha ${ano} baixada.`);
     } catch (e) {
-      setErroDownload(e instanceof Error ? e.message : "Não foi possível baixar.");
+      notificar.falha(e, "Não foi possível baixar a planilha.");
     } finally {
       setBaixando(false);
     }
@@ -30,19 +34,17 @@ export function PainelPage({ ym, mes }: Props) {
   if (mes.error && !mes.data) return <div className="state error">{mes.error}</div>;
 
   const { indicadores: ind, categorias, resumoAnual } = mes.data!;
-  const comGasto = categorias.filter((c) => c.valor > 0).sort((a, b) => b.valor - a.valor);
-  const maior = comGasto[0]?.valor ?? 0;
+  const saldo = ind.receitasMes - ind.gastosMes;
 
   return (
     <>
+      <CartaoDoDia />
       <section className="card">
         <h2 className="card-title">Indicadores · {monthLabel(ym)}</h2>
-        <div className="grid-2">
+        <div className="grid-stats">
           <Stat label="Receitas do mês" value={money(ind.receitasMes)} cls="pos" />
-          <Stat label="Contas previstas" value={money(ind.contasPrevistas)} />
           <Stat label="Gastos do mês" value={money(ind.gastosMes)} cls="neg" />
-          <Stat label="Contas pagas" value={money(ind.contasPagas)} />
-          <Stat label="Gastos avulsos" value={money(ind.avulsosMes)} />
+          <Stat label="Saldo do mês" value={money(saldo)} cls={saldo >= 0 ? "pos" : "neg"} />
           <Stat label="Em aberto" value={ind.emAberto > 0 ? money(ind.emAberto) : "—"} cls={ind.emAberto > 0 ? "warn" : ""} />
           <Stat
             label="% da renda comprometida"
@@ -50,30 +52,19 @@ export function PainelPage({ ym, mes }: Props) {
             cls={(ind.pctRendaComprometida ?? 0) > 0.8 ? "warn" : ""}
           />
           <Stat label="Faturas pagas" value={money(ind.faturasCartao)} />
-          <Stat label="Contas pendentes" value={String(ind.pendentesQtd)} cls={ind.pendentesQtd > 0 ? "warn" : ""} />
         </div>
       </section>
 
-      <section className="card">
-        <h2 className="card-title">Gastos por categoria</h2>
-        {comGasto.length === 0 ? (
-          <div className="state">Nenhum gasto neste mês.</div>
-        ) : (
-          <div className="list">
-            {comGasto.map((c) => (
-              <div key={c.categoria} className="bar-row">
-                <span className="bar-name">{c.categoria}</span>
-                <span className="bar-val">
-                  {money(c.valor)} · {pct(c.pct)}
-                </span>
-                <div className="bar-track">
-                  <div className="bar-fill" style={{ width: `${maior > 0 ? (c.valor / maior) * 100 : 0}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <div className="painel-graficos">
+        <section className="card">
+          <h2 className="card-title">Receitas x gastos · {ano}</h2>
+          <BarrasAno resumo={resumoAnual} ym={ym} />
+        </section>
+        <section className="card">
+          <h2 className="card-title">Gastos por categoria · {monthLabel(ym)}</h2>
+          <PizzaCategorias categorias={categorias} total={ind.gastosMes} />
+        </section>
+      </div>
 
       <section className="card">
         <h2 className="card-title">Resumo anual · {ano}</h2>
@@ -106,9 +97,9 @@ export function PainelPage({ ym, mes }: Props) {
           </tbody>
         </table>
         <button type="button" className="btn ghost painel-baixar" onClick={baixarPlanilha} disabled={baixando}>
+          <Download aria-hidden="true" />
           {baixando ? "Gerando planilha…" : `Baixar planilha ${ano} (.xlsx)`}
         </button>
-        {erroDownload && <p className="form-error">{erroDownload}</p>}
       </section>
     </>
   );

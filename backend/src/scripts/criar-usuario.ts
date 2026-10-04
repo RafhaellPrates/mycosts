@@ -1,18 +1,17 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { duplicado, email, nome } from "../auth/validacao.js";
 import { pool } from "../pool.js";
 import { fecharTerminal, perguntar, perguntarNovaSenha } from "./terminal.js";
 
 /**
- * Cria o acesso de uma pessoa. O app nao tem tela de cadastro: as contas
- * sao criadas aqui, pelo terminal.
+ * Cria o acesso de uma pessoa pelo terminal. Pelo app, o admin faz o mesmo
+ * na aba Acessos; este script serve para o primeiro admin e para emergencias.
  *   npm run criar-usuario
  *
  * Se o email ja tiver conta, oferece redefinir a senha (para quem esqueceu).
  */
 
-const email = z.string().trim().toLowerCase().email("Email invalido.").max(254);
-const nome = z.string().trim().min(1, "Informe o nome.").max(60, "Nome muito longo.");
 
 async function main() {
   const e = email.parse(await perguntar("Email: "));
@@ -26,10 +25,20 @@ async function main() {
     return console.log(`Senha de ${e} redefinida.`);
   }
 
-  const n = nome.parse(await perguntar("Nome: "));
+  const n = nome.parse(await perguntar("Nome (tambem serve para entrar): "));
+  const admin = (await perguntar("Admin? Pode criar e apagar acessos (s/n) ")).toLowerCase() === "s";
   const hash = await bcrypt.hash(await perguntarNovaSenha(), 12);
-  await pool.query("insert into usuarios (email, senha_hash, nome) values ($1, $2, $3)", [e, hash, n]);
-  console.log(`Acesso criado: ${n} <${e}>.`);
+  try {
+    await pool.query("insert into usuarios (email, senha_hash, nome, papel) values ($1, $2, $3, $4)", [
+      e,
+      hash,
+      n,
+      admin ? "admin" : "usuario",
+    ]);
+  } catch (err) {
+    throw new Error(duplicado(err) ?? (err as Error).message);
+  }
+  console.log(`Acesso criado: ${n} <${e}>${admin ? " (admin)" : ""}.`);
 }
 
 main()

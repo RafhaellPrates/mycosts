@@ -19,6 +19,8 @@ export interface Conta {
 export interface Receita {
   id: string;
   fonte: string;
+  /** Previsto por mes no cadastro da fonte. */
+  previsto: number;
   valor: number | null;
 }
 
@@ -32,11 +34,19 @@ export interface Lancamento {
   data: string;
   descricao: string;
   categoria: string;
+  /** Valor que cai no mes (a parcela, se parcelada). */
   valor: number;
   formaPagamento: FormaPagamento;
+  cartaoId: string | null;
+  /** 1 = a vista. */
+  parcelas: number;
+  /** Qual parcela cai neste mes (1..parcelas). */
+  parcela: number;
+  valorTotal: number;
 }
 
-export type LancamentoBody = Omit<Lancamento, "id">;
+/** valor = total da compra. */
+export type LancamentoBody = Omit<Lancamento, "id" | "parcela" | "valorTotal">;
 
 export interface Indicadores {
   receitasMes: number;
@@ -91,10 +101,36 @@ export interface PatchReceitaBody {
 
 // ---- auth ----
 
+export type Papel = "admin" | "usuario";
+
+/** Aparencia escolhida no Perfil. Objeto vazio = visual padrao. */
+export interface Preferencias {
+  tema?: "sistema" | "claro" | "escuro";
+  cores?: { destaque?: string; receitas?: string; gastos?: string };
+}
+
 export interface Usuario {
   id: string;
   email: string;
   nome: string;
+  papel: Papel;
+  preferencias: Preferencias;
+}
+
+/** Acesso visto pelo admin na aba Acessos. */
+export interface Acesso {
+  id: string;
+  nome: string;
+  email: string;
+  papel: Papel;
+  criadoEm: string;
+}
+
+export interface AcessoBody {
+  nome?: string;
+  email?: string;
+  senha?: string;
+  papel?: Papel;
 }
 
 /** senhaAtual e obrigatoria quando troca email ou senha. */
@@ -103,6 +139,7 @@ export interface PerfilBody {
   email?: string;
   senhaAtual?: string;
   novaSenha?: string;
+  preferencias?: Preferencias;
 }
 
 export interface AuthResponse {
@@ -127,6 +164,48 @@ export type ContaCadastroBody = Pick<ContaCadastro, "nome" | "categoria" | "diaV
 export interface Fonte {
   id: string;
   nome: string;
+  /** Valor previsto por mes. */
+  previsto: number;
   ativa: boolean;
   ordem: number;
+}
+
+// ---- cartoes ----
+
+export interface CartaoBody {
+  nome: string;
+  diaFechamento: number;
+  diaVencimento: number;
+  melhorDia: number;
+  limite: number | null;
+}
+
+/** Compra (ou parcela) que cai na fatura aberta. */
+export interface ItemFatura {
+  id: string;
+  descricao: string;
+  data: string;
+  parcela: number;
+  parcelas: number;
+  valor: number;
+}
+
+export interface Cartao extends CartaoBody {
+  id: string;
+  /** Ja gasto na fatura aberta. */
+  faturaAtual: number;
+  fechaEm: string;
+  venceEm: string;
+  /** Dias ate pagar uma compra feita hoje. */
+  diasParaPagar: number;
+  melhorDiaHoje: boolean;
+  estourado: boolean;
+  itens: ItemFatura[];
+}
+
+export interface CartoesResponse {
+  cartoes: Cartao[];
+  /** Cartao com mais prazo sem passar do limite. */
+  recomendado: string | null;
+  hoje: string;
 }

@@ -35,9 +35,13 @@ export async function resumoDoAno(usuarioId: string, ano: number): Promise<Resum
        join contas c on c.id = p.conta_id
        where c.usuario_id = $1 and p.ym like $2 || '-%' and c.categoria <> $3 group by p.ym
      ),
+     -- Parcelada: cada parcela cai num mes a partir da compra (ver lancamentosDoMes).
      avu as (
-       select to_char(l.data, 'YYYY-MM') as ym, sum(l.valor) as total from lancamentos l
-       where l.usuario_id = $1 and l.data >= make_date($2::int, 1, 1) and l.data < make_date($2::int + 1, 1, 1)
+       select to_char(date_trunc('month', l.data) + make_interval(months => k), 'YYYY-MM') as ym,
+              sum(case when k = l.parcelas - 1 then l.valor - round(l.valor / l.parcelas, 2) * (l.parcelas - 1)
+                       else round(l.valor / l.parcelas, 2) end) as total
+       from lancamentos l cross join generate_series(0, l.parcelas - 1) k
+       where l.usuario_id = $1 and l.data >= make_date($2::int - 4, 1, 1)
        group by 1
      )
      select m.ym,
@@ -72,7 +76,7 @@ mesRouter.get("/:ym", async (req, res) => {
       [usuario, mes],
     ),
     pool.query<Receita>(
-      `select f.id, f.nome as fonte, r.valor
+      `select f.id, f.nome as fonte, f.previsto, r.valor
        from fontes_receita f
        left join receitas r on r.fonte_id = f.id and r.ym = $2
        where f.usuario_id = $1 and (f.ativa or r.fonte_id is not null)
@@ -126,7 +130,7 @@ mesRouter.patch("/:ym/receitas/:id", async (req, res) => {
 
   const { rows } = await pool.query<Receita>(
     `with f as (
-       select id, nome from fontes_receita where id = $1 and usuario_id = $2
+       select id, nome, previsto from fontes_receita where id = $1 and usuario_id = $2
      ),
      up as (
        insert into receitas (fonte_id, ym, valor)
@@ -134,7 +138,7 @@ mesRouter.patch("/:ym/receitas/:id", async (req, res) => {
        on conflict (fonte_id, ym) do update set valor = excluded.valor, atualizado_em = now()
        returning valor
      )
-     select f.id, f.nome as fonte, up.valor from f, up`,
+     select f.id, f.nome as fonte, f.previsto, up.valor from f, up`,
     [id, usuarioDe(req), mes, valor],
   );
   if (!rows[0]) throw new HttpError(404, "Fonte nao encontrada.");
