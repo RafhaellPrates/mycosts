@@ -14,6 +14,8 @@ export interface Conta {
   /** Valor pago no mes; null = nada informado. */
   pago: number | null;
   situacao: Situacao;
+  /** Conta da fatura de um cartao: previsto = fatura que vence no mes. */
+  cartaoId: string | null;
 }
 
 export interface Receita {

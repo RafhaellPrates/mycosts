@@ -44,7 +44,7 @@ cadastroRouter.get("/categorias", (_req, res) => {
 
 cadastroRouter.get("/contas", async (req, res) => {
   const { rows } = await pool.query(
-    `select ${CONTA_COLS} from contas where usuario_id = $1 order by ativa desc, ordem, criado_em`,
+    `select ${CONTA_COLS} from contas where usuario_id = $1 and cartao_id is null order by ativa desc, ordem, criado_em`,
     [usuarioDe(req)],
   );
   res.json({ contas: rows });
@@ -70,7 +70,7 @@ cadastroRouter.patch("/contas/:id", async (req, res) => {
     3,
   );
   const { rows } = await pool.query(
-    `update contas set ${sets} where id = $1 and usuario_id = $2 returning ${CONTA_COLS}`,
+    `update contas set ${sets} where id = $1 and usuario_id = $2 and cartao_id is null returning ${CONTA_COLS}`,
     [id, usuarioDe(req), ...valores],
   );
   if (!rows[0]) throw new HttpError(404, "Conta nao encontrada.");
@@ -116,7 +116,9 @@ for (const [rota, tabela, erro] of [
 ] as const) {
   cadastroRouter.delete(rota, async (req, res) => {
     const id = uuid.parse(req.params.id);
-    const { rowCount } = await pool.query(`delete from ${tabela} where id = $1 and usuario_id = $2`, [id, usuarioDe(req)]);
+    // Conta de fatura so sai junto com o cartao.
+    const filtro = tabela === "contas" ? " and cartao_id is null" : "";
+    const { rowCount } = await pool.query(`delete from ${tabela} where id = $1 and usuario_id = $2${filtro}`, [id, usuarioDe(req)]);
     if (!rowCount) throw new HttpError(404, erro);
     res.status(204).end();
   });

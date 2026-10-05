@@ -4,6 +4,7 @@ import { exigirLogin } from "../auth/token.js";
 import { HttpError, dinheiro, usuarioDe, uuid, ym } from "../http.js";
 import { pool } from "../pool.js";
 import { CATEGORIA_CARTOES } from "../cadastro/categorias.js";
+import { faturasQueVencem } from "../cartoes/routes.js";
 import { lancamentosDoMes } from "../lancamentos/routes.js";
 import { categorias, indicadores } from "./calculos.js";
 import { valorReceita } from "./receitaAutomatica.js";
@@ -15,7 +16,7 @@ const patchConta = z.object({
 });
 const patchReceita = z.object({ valor: dinheiro.nullable() });
 
-const CONTA_MES = `c.id, c.nome, c.categoria, c.dia_venc as "diaVenc", c.previsto`;
+const CONTA_MES = `c.id, c.nome, c.categoria, c.dia_venc as "diaVenc", c.previsto, c.cartao_id as "cartaoId"`;
 
 /**
  * Receitas, gastos e saldo de cada mes do ano. Gastos = contas pagas sem as
@@ -68,7 +69,7 @@ mesRouter.get("/:ym", async (req, res) => {
   const mes = ym.parse(req.params.ym);
   const usuario = usuarioDe(req);
 
-  const [contas, receitas, lancamentos, ano] = await Promise.all([
+  const [contasDoBanco, receitas, lancamentos, ano, faturas] = await Promise.all([
     // Conta desativada ainda aparece nos meses em que teve lancamento.
     pool.query<Conta>(
       `select ${CONTA_MES}, p.pago, coalesce(p.situacao, '') as situacao
@@ -89,15 +90,22 @@ mesRouter.get("/:ym", async (req, res) => {
     ),
     lancamentosDoMes(usuario, mes),
     resumoDoAno(usuario, Number(mes.slice(0, 4))),
+    faturasQueVencem(usuario, mes),
   ]);
+
+  // Conta de cartao: previsto e a fatura que vence no mes. Sem fatura e sem
+  // baixa no mes, nao ha o que pagar e ela fica de fora.
+  const contas = contasDoBanco.rows
+    .map((c) => (c.cartaoId ? { ...c, previsto: faturas.get(c.cartaoId) ?? 0 } : c))
+    .filter((c) => !c.cartaoId || c.previsto > 0 || c.situacao !== "");
 
   const body: MesResponse = {
     ym: mes,
-    contas: contas.rows,
+    contas,
     receitas: receitas.rows,
     lancamentos,
-    indicadores: indicadores(contas.rows, receitas.rows, lancamentos, ano),
-    categorias: categorias(contas.rows, lancamentos),
+    indicadores: indicadores(contas, receitas.rows, lancamentos, ano),
+    categorias: categorias(contas, lancamentos),
     resumoAnual: ano,
   };
   res.json(body);
@@ -111,7 +119,7 @@ mesRouter.patch("/:ym/contas/:id", async (req, res) => {
   // O select em `c` garante que a conta e do usuario logado.
   const { rows } = await pool.query<Conta>(
     `with c as (
-       select id, nome, categoria, dia_venc, previsto from contas where id = $1 and usuario_id = $2
+       select id, nome, categoria, dia_venc, previsto, cartao_id from contas where id = $1 and usuario_id = $2
      ),
      up as (
        insert into pagamentos (conta_id, ym, pago, situacao)

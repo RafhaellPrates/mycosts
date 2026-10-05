@@ -132,7 +132,7 @@ export async function gerarPlanilha(d: DadosAno): Promise<Buffer> {
   // Mesma regra do Painel do app, somando o ano inteiro.
   const pagosComoContas: Conta[] = d.pagamentos.map((p) => {
     const c = d.contas.find((x) => x.id === p.contaId)!;
-    return { ...c, pago: p.pago, situacao: "" };
+    return { ...c, pago: p.pago, situacao: "", cartaoId: null };
   });
   const porCategoria = categorias(pagosComoContas, d.lancamentos).filter((c) => c.valor > 0);
   cabecalho(pai.getRow(25), ["Categoria", "Gasto no ano", "%"]);

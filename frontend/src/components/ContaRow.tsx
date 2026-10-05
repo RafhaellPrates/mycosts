@@ -28,7 +28,7 @@ export function ContaRow({ conta, ym, onPress }: Props) {
       <div className="row-main">
         <span className="row-name">{conta.nome}</span>
         <span className="row-sub">
-          {conta.categoria}
+          {conta.cartaoId ? "Fatura do cartão" : conta.categoria}
           {!prazo && conta.diaVenc ? ` · vence dia ${conta.diaVenc}` : ""}
         </span>
         {prazo && (

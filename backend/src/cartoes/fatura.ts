@@ -50,3 +50,49 @@ export function vencimentoDaFatura(fechamento: Data, diaVencimento: number): Dat
 export const fechamentoMais = (f: Data, k: number, diaFechamento: number) => em(f.y, f.m + k, diaFechamento);
 
 export const mesmoMes = (a: Data, b: Data) => a.y === b.y && a.m === b.m;
+
+/** Fechamento da fatura que vence no mes (y, m): fecha no proprio mes ou no anterior. */
+export function fechamentoQueVenceEm(y: number, m: number, diaFechamento: number, diaVencimento: number): Data {
+  const candidatos = [em(y, m - 1, diaFechamento), em(y, m, diaFechamento)];
+  return candidatos.find((f) => {
+    const v = vencimentoDaFatura(f, diaVencimento);
+    return v.y === y && v.m === m;
+  }) ?? candidatos[0];
+}
+
+export interface Compra {
+  id: string;
+  /** AAAA-MM-DD */
+  data: string;
+  descricao: string;
+  /** Total da compra. */
+  valor: number;
+  parcelas: number;
+}
+
+export interface ItemFatura {
+  id: string;
+  descricao: string;
+  data: string;
+  parcela: number;
+  parcelas: number;
+  valor: number;
+}
+
+/** Compras e parcelas que caem na fatura que fecha em `fechamento`. A ultima parcela absorve o arredondamento. */
+export function itensDaFatura(compras: Compra[], fechamento: Data, diaFechamento: number): ItemFatura[] {
+  const itens: ItemFatura[] = [];
+  for (const compra of compras) {
+    const primeira = fechamentoDaCompra(deTexto(compra.data), diaFechamento);
+    const parcela = Math.round(compra.valor / compra.parcelas * 100) / 100;
+    for (let k = 0; k < compra.parcelas; k++) {
+      if (!mesmoMes(fechamentoMais(primeira, k, diaFechamento), fechamento)) continue;
+      const ultima = k === compra.parcelas - 1;
+      const valor = ultima ? Math.round((compra.valor - parcela * (compra.parcelas - 1)) * 100) / 100 : parcela;
+      itens.push({ id: compra.id, descricao: compra.descricao, data: compra.data, parcela: k + 1, parcelas: compra.parcelas, valor });
+    }
+  }
+  return itens;
+}
+
+export const totalDe = (itens: ItemFatura[]) => Math.round(itens.reduce((a, i) => a + i.valor, 0) * 100) / 100;
