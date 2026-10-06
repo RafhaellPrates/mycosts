@@ -248,6 +248,12 @@ button {
 .notyf__toast { border-radius: 12px; max-width: 360px; }
 .notyf__wrapper { padding: 14px 0; }
 .notyf__message { font-size: 14px; font-weight: 600; }
+/* No celular o Notyf zera o padding e estica o toast na largura toda, e ele
+   fica atras da barra de status. "html" ganha da regra da lib, que carrega depois. */
+@media (max-width: 480px) {
+  html .notyf { padding: calc(env(safe-area-inset-top) + 16px) 16px 0; align-items: center; }
+  html .notyf__toast { width: auto; max-width: min(340px, 100%); border-radius: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2); }
+}
 .toast-ok .notyf__message { color: var(--on-brand); }
 .toast-erro .notyf__message { color: var(--on-neg); }
 .toast-ok .notyf__dismiss-btn::before, .toast-ok .notyf__dismiss-btn::after { background: var(--on-brand); }
@@ -336,8 +342,9 @@ button {
 .btn:disabled { opacity: 0.5; }
 
 /* ---- bottom sheet ---- */
+/* top e height sao ajustados pelo Sheet.tsx quando o teclado abre. */
 .sheet-backdrop {
-  position: fixed; inset: 0;
+  position: fixed; top: 0; left: 0; right: 0; height: 100%;
   background: rgba(0,0,0,0.45);
   z-index: 10;
   display: flex;
@@ -351,6 +358,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: up .18s ease-out;
 }
 @keyframes up { from { transform: translateY(40px); opacity: 0; } }
@@ -400,6 +410,10 @@ button {
 .cartao-fatura { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .limite-track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin: 8px 0 4px; }
 .limite-fill { height: 100%; background: var(--brand); border-radius: 3px; }
+.cartao-abrir { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.cartao-abrir:hover .cartao-abrir-ico { color: var(--brand); }
+.cartao-abrir-ico { width: 18px; height: 18px; margin-left: auto; align-self: center; color: var(--muted); }
+.cartao-parcelas-titulo { margin: 14px 0 4px; font-weight: 600; }
 .cartao-rec { display: flex; gap: 12px; align-items: flex-start; }
 .cartao-rec svg { width: 28px; height: 28px; color: var(--brand); flex: none; margin-top: 2px; }
 .cartao-rec div { display: flex; flex-direction: column; gap: 2px; }

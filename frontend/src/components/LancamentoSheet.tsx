@@ -153,7 +153,8 @@ export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: P
       )}
       {forma === "Crédito" && Number(parcelas) > 1 && (parseMoney(valor) ?? 0) > 0 && (
         <p className="sheet-info">
-          {parcelas}x de {money((parseMoney(valor) ?? 0) / Number(parcelas))}, uma por mês a partir do mês da compra
+          {parcelas}x de {money((parseMoney(valor) ?? 0) / Number(parcelas))},{" "}
+          {cartaoId ? "uma por fatura do cartão" : "uma por mês a partir do mês da compra"}
         </p>
       )}
       <div className="grid-2">

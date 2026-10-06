@@ -35,15 +35,18 @@ const BASE = `l.id, to_char(l.data, 'YYYY-MM-DD') as data, l.descricao, l.catego
 
 /**
  * Avulsos que caem no mes. Parcelada vira uma linha por parcela: a parcela k
- * cai k meses depois da compra; a ultima absorve o arredondamento.
+ * cai k meses depois da compra; a ultima absorve o arredondamento. Compra com
+ * cartao aparece uma vez, no mes da compra, com o total: o gasto dela entra
+ * pela fatura e as parcelas ficam na tela de Cartoes.
  */
 export async function lancamentosDoMes(usuarioId: string, mes: string): Promise<Lancamento[]> {
   const { rows } = await pool.query<Lancamento>(
     `select ${BASE}, k + 1 as parcela,
-            case when k = l.parcelas - 1 then l.valor - round(l.valor / l.parcelas, 2) * (l.parcelas - 1)
+            case when l.cartao_id is not null then l.valor
+                 when k = l.parcelas - 1 then l.valor - round(l.valor / l.parcelas, 2) * (l.parcelas - 1)
                  else round(l.valor / l.parcelas, 2) end as valor
      from lancamentos l
-     cross join generate_series(0, l.parcelas - 1) k
+     cross join generate_series(0, case when l.cartao_id is null then l.parcelas - 1 else 0 end) k
      where l.usuario_id = $1
        and date_trunc('month', l.data) + make_interval(months => k) = ($2 || '-01')::date
      order by l.data desc, l.criado_em desc`,

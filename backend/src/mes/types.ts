@@ -25,14 +25,14 @@ export interface Receita {
   automatico: boolean;
 }
 
-/** Gasto avulso. Conta no mes da data, mesmo no credito. */
+/** Gasto avulso. Com cartao, entra na fatura e nao soma nos avulsos. */
 export interface Lancamento {
   id: string;
   /** AAAA-MM-DD */
   data: string;
   descricao: string;
   categoria: string;
-  /** Valor que cai no mes (a parcela, se parcelada). */
+  /** Valor que cai no mes (a parcela, se parcelada). Com cartao, o total da compra. */
   valor: number;
   formaPagamento: "Crédito" | "Débito" | "Pix" | "Dinheiro";
   cartaoId: string | null;
@@ -50,7 +50,7 @@ export interface Indicadores {
   contasPagas: number;
   emAberto: number;
   avulsosMes: number;
-  /** Contas pagas sem as faturas + avulsos: o que foi gasto no mes. */
+  /** Contas pagas (faturas inclusive) + avulsos fora do cartao. */
   gastosMes: number;
   /** 0..1 */
   pctRendaComprometida: number | null;

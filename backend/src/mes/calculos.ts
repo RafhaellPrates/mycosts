@@ -9,9 +9,13 @@ export function soma(ns: (number | null)[]): number {
   return centavos(ns.reduce<number>((a, b) => a + (b ?? 0), 0));
 }
 
-// Fatura paga nao e gasto: as compras no credito ja contaram como avulsos
-// no dia da compra. Ela continua nas contas a pagar.
-const naoFatura = (c: Conta) => c.categoria !== CATEGORIA_CARTOES;
+// Fatura paga e gasto (categoria Cartões). Compra com cartao fica fora dos
+// avulsos para nao contar duas vezes: ela ja esta na fatura.
+const ehFatura = (c: Conta) => c.categoria === CATEGORIA_CARTOES;
+const foraDoCartao = (l: Lancamento) => !l.cartaoId;
+// Conta marcada Nao se aplica no mes fica fora de todas as contas: previsto,
+// pago, gasto, em aberto e categorias. Voltando a se aplicar, volta a contar.
+const seAplica = (c: Conta) => c.situacao !== "Não se aplica";
 
 export function indicadores(
   contas: Conta[],
@@ -19,22 +23,25 @@ export function indicadores(
   lancamentos: Lancamento[],
   ano: ResumoMensal[],
 ): Indicadores {
+  contas = contas.filter(seAplica);
   const receitasMes = soma(receitas.map((r) => r.valor));
   const contasPrevistas = soma(contas.map((c) => c.previsto));
   const contasPagas = soma(contas.map((c) => c.pago));
-  const avulsosMes = soma(lancamentos.map((l) => l.valor));
+  const avulsosMes = soma(lancamentos.filter(foraDoCartao).map((l) => l.valor));
   const receitasAno = soma(ano.map((a) => a.receitas));
   const gastosAno = soma(ano.map((a) => a.gastos));
+  // Conta paga, mesmo com valor diferente do previsto, nao deixa saldo em aberto.
+  const pendentes = contas.filter((c) => c.situacao !== "Pago");
   return {
     receitasMes,
     contasPrevistas,
     contasPagas,
-    emAberto: centavos(Math.max(contasPrevistas - contasPagas, 0)),
+    emAberto: soma(pendentes.map((c) => Math.max(c.previsto - (c.pago ?? 0), 0))),
     avulsosMes,
-    gastosMes: centavos(soma(contas.filter(naoFatura).map((c) => c.pago)) + avulsosMes),
+    gastosMes: centavos(contasPagas + avulsosMes),
     pctRendaComprometida: receitasMes > 0 ? contasPrevistas / receitasMes : null,
-    faturasCartao: soma(contas.filter((c) => !naoFatura(c)).map((c) => c.pago)),
-    pendentesQtd: contas.filter((c) => c.situacao !== "Pago" && c.situacao !== "Não se aplica").length,
+    faturasCartao: soma(contas.filter(ehFatura).map((c) => c.pago)),
+    pendentesQtd: pendentes.length,
     receitasAno,
     gastosAno,
     saldoAno: centavos(receitasAno - gastosAno),
@@ -43,8 +50,8 @@ export function indicadores(
 
 export function categorias(contas: Conta[], lancamentos: Lancamento[]): CategoriaGasto[] {
   const itens = [
-    ...contas.filter(naoFatura).map((c) => ({ categoria: c.categoria, valor: c.pago })),
-    ...lancamentos.map((l) => ({ categoria: l.categoria, valor: l.valor })),
+    ...contas.filter(seAplica).map((c) => ({ categoria: c.categoria, valor: c.pago })),
+    ...lancamentos.filter(foraDoCartao).map((l) => ({ categoria: l.categoria, valor: l.valor })),
   ];
   const total = soma(itens.map((i) => i.valor));
   return CATEGORIAS.map((categoria) => {

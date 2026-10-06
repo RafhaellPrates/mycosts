@@ -4,7 +4,7 @@ export const CATEGORIAS = [
   "Lazer", "Cartões", "Dívidas", "Impostos", "Investimentos", "Outros",
 ] as const;
 
-/** Categoria das faturas: conta a pagar, mas o gasto vem dos avulsos no credito. */
+/** Categoria das faturas: a fatura paga e o gasto das compras no cartao. */
 export const CATEGORIA_CARTOES = "Cartões";
 
 /** Avulso nao usa "Cartões": compra no cartao vai pela forma de pagamento. */

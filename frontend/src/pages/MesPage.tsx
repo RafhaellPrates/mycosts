@@ -118,11 +118,14 @@ export function MesPage({ ym, mes }: Props) {
                   <span className="row-name">{l.descricao}</span>
                   <span className="row-sub">
                     {dayMonth(l.data)} · {l.categoria} · {l.formaPagamento}
-                    {l.parcelas > 1 && ` · parcela ${l.parcela}/${l.parcelas}`}
+                    {l.cartaoId
+                      ? ` · ${l.parcelas > 1 ? `${l.parcelas}x · ` : ""}entra na fatura`
+                      : l.parcelas > 1 && ` · parcela ${l.parcela}/${l.parcelas}`}
                   </span>
                 </div>
                 <div className="row-side">
-                  <span className="row-value neg">{money(l.valor)}</span>
+                  {/* Compra no cartao nao soma aqui: o gasto e a fatura. */}
+                  <span className={l.cartaoId ? "row-value row-prev" : "row-value neg"}>{money(l.valor)}</span>
                   <AcoesLinha
                     nome={l.descricao}
                     onEditar={() => setLancAberto(l)}

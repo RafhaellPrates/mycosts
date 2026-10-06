@@ -3,7 +3,6 @@ import { z } from "zod";
 import { exigirLogin } from "../auth/token.js";
 import { HttpError, dinheiro, usuarioDe, uuid, ym } from "../http.js";
 import { pool } from "../pool.js";
-import { CATEGORIA_CARTOES } from "../cadastro/categorias.js";
 import { faturasQueVencem } from "../cartoes/routes.js";
 import { lancamentosDoMes } from "../lancamentos/routes.js";
 import { categorias, indicadores } from "./calculos.js";
@@ -19,8 +18,8 @@ const patchReceita = z.object({ valor: dinheiro.nullable() });
 const CONTA_MES = `c.id, c.nome, c.categoria, c.dia_venc as "diaVenc", c.previsto, c.cartao_id as "cartaoId"`;
 
 /**
- * Receitas, gastos e saldo de cada mes do ano. Gastos = contas pagas sem as
- * faturas de cartao + avulsos (ver calculos.ts).
+ * Receitas, gastos e saldo de cada mes do ano. Gastos = contas pagas, faturas
+ * inclusive, + avulsos fora do cartao (ver calculos.ts).
  */
 export async function resumoDoAno(usuarioId: string, ano: number): Promise<ResumoMensal[]> {
   const { rows } = await pool.query<ResumoMensal>(
@@ -37,7 +36,8 @@ export async function resumoDoAno(usuarioId: string, ano: number): Promise<Resum
      pag as (
        select p.ym, sum(p.pago) as total from pagamentos p
        join contas c on c.id = p.conta_id
-       where c.usuario_id = $1 and p.ym like $2 || '-%' and c.categoria <> $3 group by p.ym
+       where c.usuario_id = $1 and p.ym like $2 || '-%'
+         and p.situacao is distinct from 'Não se aplica' group by p.ym
      ),
      -- Parcelada: cada parcela cai num mes a partir da compra (ver lancamentosDoMes).
      avu as (
@@ -45,7 +45,7 @@ export async function resumoDoAno(usuarioId: string, ano: number): Promise<Resum
               sum(case when k = l.parcelas - 1 then l.valor - round(l.valor / l.parcelas, 2) * (l.parcelas - 1)
                        else round(l.valor / l.parcelas, 2) end) as total
        from lancamentos l cross join generate_series(0, l.parcelas - 1) k
-       where l.usuario_id = $1 and l.data >= make_date($2::int - 4, 1, 1)
+       where l.usuario_id = $1 and l.cartao_id is null and l.data >= make_date($2::int - 4, 1, 1)
        group by 1
      )
      select m.ym,
@@ -57,7 +57,7 @@ export async function resumoDoAno(usuarioId: string, ano: number): Promise<Resum
      left join pag on pag.ym = m.ym
      left join avu on avu.ym = m.ym
      order by m.ym`,
-    [usuarioId, String(ano), CATEGORIA_CARTOES],
+    [usuarioId, String(ano)],
   );
   return rows;
 }

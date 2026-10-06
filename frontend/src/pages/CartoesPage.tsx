@@ -1,17 +1,19 @@
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/index.ts";
 import type { Cartao, CartoesResponse } from "../api/types.ts";
 import { AcoesLinha } from "../components/AcoesLinha.tsx";
 import { CartaoSheet } from "../components/CartaoSheet.tsx";
-import { dayMonth, money } from "../lib/format.ts";
+import { FaturaSheet } from "../components/FaturaSheet.tsx";
+import { dayMonth, money, monthShort } from "../lib/format.ts";
 import { notificar } from "../lib/notificar.ts";
 
-/** Cartoes com a fatura aberta: compras e parcelas que caem nela. */
+/** Cartoes com a fatura aberta e as parcelas em andamento. Tocar no cartao abre a fatura. */
 export function CartoesPage() {
   const [dados, setDados] = useState<CartoesResponse | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aberto, setAberto] = useState<Cartao | "novo" | null>(null);
+  const [fatura, setFatura] = useState<Cartao | null>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -70,39 +72,45 @@ export function CartoesPage() {
             Fecha {dayMonth(c.fechaEm)} · vence {dayMonth(c.venceEm)} · melhor dia {c.melhorDia} · compra hoje vence em{" "}
             {c.diasParaPagar} dias
           </p>
-          <div className="cartao-fatura">
-            <span className="stat-label">Fatura aberta</span>
-            <span className="stat-value neg">{money(c.faturaAtual)}</span>
-            {c.limite && <span className="row-sub">de {money(c.limite)} de limite</span>}
-          </div>
-          {c.limite && (
-            <div className="limite-track" aria-hidden="true">
-              <div className="limite-fill" style={{ width: `${Math.min(100, (c.faturaAtual / c.limite) * 100)}%` }} />
+          <button type="button" className="cartao-abrir" onClick={() => setFatura(c)} aria-label={`Ver fatura do ${c.nome}`}>
+            <div className="cartao-fatura">
+              <span className="stat-label">Fatura aberta</span>
+              <span className="stat-value neg">{money(c.faturaAtual)}</span>
+              {c.limite && <span className="row-sub">de {money(c.limite)} de limite</span>}
+              <ChevronRight className="cartao-abrir-ico" aria-hidden="true" />
             </div>
-          )}
-          {c.itens.length === 0 ? (
-            <div className="state">Nada nesta fatura ainda.</div>
-          ) : (
-            <div className="list">
-              {c.itens.map((i) => (
-                <div key={`${i.id}-${i.parcela}`} className="row">
-                  <div className="row-main">
-                    <span className="row-name">{i.descricao}</span>
-                    <span className="row-sub">
-                      {dayMonth(i.data)}
-                      {i.parcelas > 1 && ` · parcela ${i.parcela}/${i.parcelas}`}
-                    </span>
+            {c.limite && (
+              <div className="limite-track" aria-hidden="true">
+                <div className="limite-fill" style={{ width: `${Math.min(100, (c.faturaAtual / c.limite) * 100)}%` }} />
+              </div>
+            )}
+          </button>
+          {c.parcelamentos.length > 0 && (
+            <>
+              <h3 className="stat-label cartao-parcelas-titulo">Parcelas em andamento</h3>
+              <div className="list">
+                {c.parcelamentos.map((p) => (
+                  <div key={p.id} className="row">
+                    <div className="row-main">
+                      <span className="row-name">{p.descricao}</span>
+                      <span className="row-sub">
+                        parcela {p.parcelaAtual}/{p.parcelas} · {money(p.valorTotal)} em {dayMonth(p.data)} · última{" "}
+                        {monthShort(p.terminaEm.slice(0, 7))}
+                      </span>
+                    </div>
+                    <div className="row-side">
+                      <span className="row-value">{money(p.valorParcela)}/mês</span>
+                      <span className="row-sub">faltam {money(p.restante)}</span>
+                    </div>
                   </div>
-                  <div className="row-side">
-                    <span className="row-value">{money(i.valor)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </section>
       ))}
 
+      {fatura && <FaturaSheet cartao={fatura} onClose={() => setFatura(null)} />}
       {aberto && <CartaoSheet cartao={aberto === "novo" ? null : aberto} onClose={() => setAberto(null)} onSalvo={carregar} />}
     </>
   );
