@@ -105,7 +105,8 @@ export interface PatchReceitaBody {
 
 // ---- auth ----
 
-export type Papel = "admin" | "usuario";
+/** visitante: usuario temporario do modo visitante, apagado em 24h. */
+export type Papel = "admin" | "usuario" | "visitante";
 
 /** Aparencia escolhida no Perfil. Objeto vazio = visual padrao. */
 export interface Preferencias {

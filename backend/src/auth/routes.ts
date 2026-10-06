@@ -5,6 +5,7 @@ import { z } from "zod";
 import { HttpError, usuarioDe } from "../http.js";
 import { pool } from "../pool.js";
 import { assinarToken, exigirLogin } from "./token.js";
+import { VALIDADE_VISITANTE, criarVisitante } from "./visitante.js";
 import { USUARIO_COLS, duplicado, email, nome, preferencias, senha, type UsuarioRow } from "./validacao.js";
 
 export const CUSTO_BCRYPT = 12;
@@ -34,8 +35,17 @@ const limite = rateLimit({
   message: { erro: "Muitas tentativas. Espere alguns minutos." },
 });
 
+// Visitante: poucos por IP por hora; o total ainda tem o teto de visitante.ts.
+const limiteVisitante = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { erro: "Muitos acessos de visitante. Espere um pouco." },
+});
+
 // Nao tem rota de cadastro: os acessos sao criados pelo admin (aba Acessos)
-// ou com npm run criar-usuario.
+// ou com npm run criar-usuario. Quem so quer conhecer entra como visitante.
 export const authRouter = Router();
 
 authRouter.post("/login", limite, async (req, res) => {
@@ -52,6 +62,11 @@ authRouter.post("/login", limite, async (req, res) => {
   if (!rows[0] || !ok) throw new HttpError(401, "Login ou senha incorretos.");
   const { senha_hash: _, ...usuario } = rows[0];
   res.json({ token: assinarToken(usuario.id), usuario });
+});
+
+authRouter.post("/visitante", limiteVisitante, async (_req, res) => {
+  const usuario = await criarVisitante();
+  res.status(201).json({ token: assinarToken(usuario.id, VALIDADE_VISITANTE), usuario });
 });
 
 authRouter.get("/me", exigirLogin, async (req, res) => {
@@ -80,6 +95,10 @@ authRouter.patch(
 
     const trocaEmail = dados.email !== undefined && dados.email !== atual.email;
     const trocaSenha = dados.novaSenha !== undefined;
+    const trocaNome = dados.nome !== undefined && dados.nome !== atual.nome;
+    if (atual.papel === "visitante" && (trocaEmail || trocaSenha || trocaNome)) {
+      throw new HttpError(403, "No modo visitante so a aparencia pode ser alterada.");
+    }
     if (trocaEmail || trocaSenha) {
       const ok = dados.senhaAtual ? await bcrypt.compare(dados.senhaAtual, atual.senha_hash) : false;
       if (!ok) throw new HttpError(403, "Senha atual incorreta.");

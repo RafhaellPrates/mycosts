@@ -10,22 +10,27 @@ interface Props {
 /**
  * Entrar. Nao tem criar conta: os acessos sao criados no back com
  * npm run criar-usuario. O back cuida de senha (bcrypt) e token (JWT).
+ * Visitante ganha um usuario temporario com dados de exemplo.
  */
 export function LoginPage({ onEntrar }: Props) {
   const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function entrarCom(chamada: () => Promise<AuthResponse>) {
     setEnviando(true);
     try {
-      onEntrar(await api.login(login.trim(), senha));
+      onEntrar(await chamada());
     } catch (e) {
       notificar.falha(e, "Não foi possível entrar.");
     } finally {
       setEnviando(false);
     }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    void entrarCom(() => api.login(login.trim(), senha));
   }
 
   return (
@@ -64,6 +69,13 @@ export function LoginPage({ onEntrar }: Props) {
           {enviando ? "Aguarde…" : "Entrar"}
         </button>
       </form>
+
+      <section className="card login-form">
+        <p className="login-sub">Só quer conhecer o app? Entre com dados de exemplo, sem cadastro. Eles são apagados em 24h.</p>
+        <button type="button" className="btn ghost" disabled={enviando} onClick={() => void entrarCom(api.visitante)}>
+          Entrar como visitante
+        </button>
+      </section>
     </main>
   );
 }

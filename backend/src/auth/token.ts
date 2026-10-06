@@ -13,11 +13,11 @@ declare global {
 
 const ALG = "HS256" as const;
 
-export function assinarToken(usuarioId: string): string {
+export function assinarToken(usuarioId: string, validade = env.JWT_EXPIRES_IN): string {
   return jwt.sign({}, env.JWT_SECRET, {
     algorithm: ALG,
     subject: usuarioId,
-    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+    expiresIn: validade as jwt.SignOptions["expiresIn"],
   });
 }
 

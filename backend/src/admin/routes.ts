@@ -40,7 +40,7 @@ export const adminRouter = Router();
 adminRouter.use(exigirLogin, exigirAdmin);
 
 adminRouter.get("/usuarios", async (_req, res) => {
-  const { rows } = await pool.query(`select ${COLS} from usuarios order by papel, lower(nome)`);
+  const { rows } = await pool.query(`select ${COLS} from usuarios where papel <> 'visitante' order by papel, lower(nome)`);
   res.json({ usuarios: rows });
 });
 

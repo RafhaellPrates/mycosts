@@ -41,7 +41,7 @@ export interface UsuarioRow {
   id: string;
   email: string;
   nome: string;
-  papel: "admin" | "usuario";
+  papel: "admin" | "usuario" | "visitante";
   preferencias: Preferencias;
 }
 
