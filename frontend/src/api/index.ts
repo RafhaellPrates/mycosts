@@ -2,6 +2,7 @@ import { baixar, http } from "./client.ts";
 import type {
   Cartao,
   CartaoBody,
+  Fatura,
   CartoesResponse,
   Acesso,
   AcessoBody,
@@ -44,6 +45,7 @@ export const api = {
   criarCartao: (body: CartaoBody) => http.post<Cartao>("/cartoes", body),
   editarCartao: (id: string, body: Partial<CartaoBody>) => http.patch<Cartao>(`/cartoes/${id}`, body),
   apagarCartao: (id: string) => http.delete<void>(`/cartoes/${id}`),
+  fatura: (id: string, ym: string) => http.get<Fatura>(`/cartoes/${id}/fatura/${ym}`),
 
   // exportacao
   baixarPlanilha: (ano: string) => baixar(`/export/${ano}.xlsx`, `Controle_Financeiro_${ano}.xlsx`),

@@ -31,14 +31,14 @@ export interface Receita {
 export const FORMAS_PAGAMENTO = ["Crédito", "Débito", "Pix", "Dinheiro"] as const;
 export type FormaPagamento = (typeof FORMAS_PAGAMENTO)[number];
 
-/** Gasto avulso. Conta no mes da data, mesmo no credito. */
+/** Gasto avulso. Com cartao, entra na fatura e nao soma nos avulsos. */
 export interface Lancamento {
   id: string;
   /** AAAA-MM-DD */
   data: string;
   descricao: string;
   categoria: string;
-  /** Valor que cai no mes (a parcela, se parcelada). */
+  /** Valor que cai no mes (a parcela, se parcelada). Com cartao, o total da compra. */
   valor: number;
   formaPagamento: FormaPagamento;
   cartaoId: string | null;
@@ -59,7 +59,7 @@ export interface Indicadores {
   contasPagas: number;
   emAberto: number;
   avulsosMes: number;
-  /** Contas pagas sem as faturas + avulsos: o que foi gasto no mes. */
+  /** Contas pagas (faturas inclusive) + avulsos fora do cartao. */
   gastosMes: number;
   /** 0..1 */
   pctRendaComprometida: number | null;
@@ -184,7 +184,7 @@ export interface CartaoBody {
   limite: number | null;
 }
 
-/** Compra (ou parcela) que cai na fatura aberta. */
+/** Compra (ou parcela) que cai numa fatura. */
 export interface ItemFatura {
   id: string;
   descricao: string;
@@ -204,6 +204,33 @@ export interface Cartao extends CartaoBody {
   diasParaPagar: number;
   melhorDiaHoje: boolean;
   estourado: boolean;
+  /** Compras parceladas com parcela na fatura aberta ou nas seguintes. */
+  parcelamentos: Parcelamento[];
+}
+
+export interface Parcelamento {
+  id: string;
+  descricao: string;
+  data: string;
+  parcelas: number;
+  /** Parcela que cai na fatura aberta. */
+  parcelaAtual: number;
+  valorParcela: number;
+  valorTotal: number;
+  /** Soma das parcelas da atual em diante. */
+  restante: number;
+  /** Vencimento da ultima parcela. */
+  terminaEm: string;
+}
+
+/** Fatura que vence no mes ym. pago e situacao vem da conta do cartao. */
+export interface Fatura {
+  ym: string;
+  fechaEm: string;
+  venceEm: string;
+  total: number;
+  pago: number | null;
+  situacao: Situacao;
   itens: ItemFatura[];
 }
 

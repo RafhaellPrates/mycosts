@@ -96,3 +96,47 @@ export function itensDaFatura(compras: Compra[], fechamento: Data, diaFechamento
 }
 
 export const totalDe = (itens: ItemFatura[]) => Math.round(itens.reduce((a, i) => a + i.valor, 0) * 100) / 100;
+
+export interface Parcelamento {
+  id: string;
+  descricao: string;
+  data: string;
+  parcelas: number;
+  /** Parcela que cai na fatura aberta (1..parcelas). */
+  parcelaAtual: number;
+  valorParcela: number;
+  valorTotal: number;
+  /** Soma das parcelas da atual em diante. */
+  restante: number;
+  /** Vencimento da fatura da ultima parcela. */
+  terminaEm: string;
+}
+
+/**
+ * Compras parceladas que ainda tem parcela na fatura que fecha em `aberta`
+ * ou nas seguintes. Compra que comeca depois da aberta fica com parcelaAtual 1.
+ */
+export function parcelasEmAndamento(compras: Compra[], aberta: Data, diaFechamento: number, diaVencimento: number): Parcelamento[] {
+  const indice = (x: Data) => x.y * 12 + x.m;
+  const lista: Parcelamento[] = [];
+  for (const compra of compras) {
+    if (compra.parcelas < 2) continue;
+    const primeira = fechamentoDaCompra(deTexto(compra.data), diaFechamento);
+    const ultima = fechamentoMais(primeira, compra.parcelas - 1, diaFechamento);
+    if (indice(ultima) < indice(aberta)) continue;
+    const atual = Math.max(indice(aberta) - indice(primeira), 0) + 1;
+    const parcela = Math.round(compra.valor / compra.parcelas * 100) / 100;
+    lista.push({
+      id: compra.id,
+      descricao: compra.descricao,
+      data: compra.data,
+      parcelas: compra.parcelas,
+      parcelaAtual: atual,
+      valorParcela: parcela,
+      valorTotal: compra.valor,
+      restante: Math.round((compra.valor - parcela * (atual - 1)) * 100) / 100,
+      terminaEm: texto(vencimentoDaFatura(ultima, diaVencimento)),
+    });
+  }
+  return lista;
+}

@@ -121,7 +121,7 @@ export async function gerarPlanilha(d: DadosAno): Promise<Buffer> {
   pai.getRow(5).values = ["Receitas no ano", receitasAno];
   pai.getRow(6).values = ["Gastos no ano", gastosAno];
   pai.getRow(7).values = ["Saldo do ano", receitasAno - gastosAno];
-  pai.getCell("A8").value = "Gastos = contas pagas sem as faturas de cartão + gastos avulsos.";
+  pai.getCell("A8").value = "Gastos = contas pagas, faturas de cartão inclusive, + gastos avulsos fora do cartão.";
   pai.getCell("A8").font = { italic: true, color: { argb: "FF6B7280" } };
 
   cabecalho(pai.getRow(10), ["Mês", "Receitas", "Gastos", "Saldo"]);
@@ -132,7 +132,7 @@ export async function gerarPlanilha(d: DadosAno): Promise<Buffer> {
   // Mesma regra do Painel do app, somando o ano inteiro.
   const pagosComoContas: Conta[] = d.pagamentos.map((p) => {
     const c = d.contas.find((x) => x.id === p.contaId)!;
-    return { ...c, pago: p.pago, situacao: "", cartaoId: null };
+    return { ...c, pago: p.pago, situacao: p.situacao === "Não se aplica" ? p.situacao : "", cartaoId: null };
   });
   const porCategoria = categorias(pagosComoContas, d.lancamentos).filter((c) => c.valor > 0);
   cabecalho(pai.getRow(25), ["Categoria", "Gasto no ano", "%"]);

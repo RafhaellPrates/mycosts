@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { exigirLogin } from "../auth/token.js";
-import { HttpError, dinheiro, setDe, usuarioDe, uuid } from "../http.js";
+import { HttpError, dinheiro, setDe, usuarioDe, uuid, ym } from "../http.js";
 import { pool } from "../pool.js";
 import { CATEGORIA_CARTOES } from "../cadastro/categorias.js";
 import {
@@ -11,6 +11,7 @@ import {
   fechamentoQueVenceEm,
   hojeBR,
   itensDaFatura,
+  parcelasEmAndamento,
   texto,
   totalDe,
   vencimentoDaFatura,
@@ -77,8 +78,9 @@ cartoesRouter.use(exigirLogin);
 
 /**
  * Cartoes com a fatura aberta (o que ja foi gasto, inclusive parcelas que
- * caem nela), quando fecha e vence, e quantos dias uma compra feita hoje
- * leva para ser paga. `recomendado` = mais prazo sem estourar o limite.
+ * caem nela), quando fecha e vence, as compras parceladas que ainda tem
+ * parcela e quantos dias uma compra feita hoje leva para ser paga.
+ * `recomendado` = mais prazo sem estourar o limite.
  */
 cartoesRouter.get("/", async (req, res) => {
   const usuario = usuarioDe(req);
@@ -91,8 +93,8 @@ cartoesRouter.get("/", async (req, res) => {
   const lista = cartoes.rows.map((c) => {
     const fechaHoje = fechamentoDaCompra(hoje, c.diaFechamento);
     const venceHoje = vencimentoDaFatura(fechaHoje, c.diaVencimento);
-    const itens = itensDaFatura(compras.rows.filter((x) => x.cartaoId === c.id), fechaHoje, c.diaFechamento);
-    const fatura = totalDe(itens);
+    const doCartao = compras.rows.filter((x) => x.cartaoId === c.id);
+    const fatura = totalDe(itensDaFatura(doCartao, fechaHoje, c.diaFechamento));
     return {
       ...c,
       faturaAtual: fatura,
@@ -101,7 +103,7 @@ cartoesRouter.get("/", async (req, res) => {
       diasParaPagar: diasEntre(hoje, venceHoje),
       melhorDiaHoje: hoje.d === c.melhorDia,
       estourado: c.limite !== null && fatura >= c.limite,
-      itens: itens.reverse(),
+      parcelamentos: parcelasEmAndamento(doCartao, fechaHoje, c.diaFechamento, c.diaVencimento).reverse(),
     };
   });
 
@@ -110,6 +112,36 @@ cartoesRouter.get("/", async (req, res) => {
       .filter((c) => !c.estourado)
       .sort((a, b) => b.diasParaPagar - a.diasParaPagar || a.faturaAtual - b.faturaAtual)[0]?.id ?? null;
   res.json({ cartoes: lista, recomendado, hoje: texto(hoje) });
+});
+
+/** Fatura que vence no mes ('YYYY-MM'), com o pagamento lancado na conta do cartao. */
+cartoesRouter.get("/:id/fatura/:ym", async (req, res) => {
+  const id = uuid.parse(req.params.id);
+  const mes = ym.parse(req.params.ym);
+  const usuario = usuarioDe(req);
+  const [cartao, compras, pagamento] = await Promise.all([
+    pool.query<CartaoRow>(`select ${SELECT} from cartoes where id = $1 and usuario_id = $2`, [id, usuario]),
+    pool.query<CompraRow>(COMPRAS, [usuario]),
+    pool.query<{ pago: number | null; situacao: string | null }>(
+      `select p.pago, p.situacao from contas c join pagamentos p on p.conta_id = c.id and p.ym = $3
+       where c.cartao_id = $1 and c.usuario_id = $2`,
+      [id, usuario, mes],
+    ),
+  ]);
+  const c = cartao.rows[0];
+  if (!c) throw new HttpError(404, "Cartao nao encontrado.");
+  const [y, m] = mes.split("-").map(Number);
+  const fechamento = fechamentoQueVenceEm(y, m, c.diaFechamento, c.diaVencimento);
+  const itens = itensDaFatura(compras.rows.filter((x) => x.cartaoId === c.id), fechamento, c.diaFechamento);
+  res.json({
+    ym: mes,
+    fechaEm: texto(fechamento),
+    venceEm: texto(vencimentoDaFatura(fechamento, c.diaVencimento)),
+    total: totalDe(itens),
+    pago: pagamento.rows[0]?.pago ?? null,
+    situacao: pagamento.rows[0]?.situacao ?? "",
+    itens: itens.reverse(),
+  });
 });
 
 // O cartao nasce com a conta da fatura, que aparece em A pagar no mes do vencimento.

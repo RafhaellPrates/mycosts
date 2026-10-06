@@ -57,7 +57,7 @@ exportRouter.get("/:arquivo", async (req, res) => {
     ),
     pool.query<Lancamento>(
       `select id, to_char(data, 'YYYY-MM-DD') as data, descricao, categoria, valor,
-              forma_pagamento as "formaPagamento"
+              forma_pagamento as "formaPagamento", cartao_id as "cartaoId"
        from lancamentos
        where usuario_id = $1 and data >= make_date($2::int, 1, 1) and data < make_date($2::int + 1, 1, 1)`,
       [usuario, ano],
