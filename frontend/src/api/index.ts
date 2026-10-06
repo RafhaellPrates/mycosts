@@ -25,6 +25,8 @@ export const api = {
   // auth
   /** login = email ou nome. */
   login: (login: string, senha: string) => http.post<AuthResponse>("/auth/login", { login, senha }),
+  /** Cria um usuario temporario com dados de exemplo. */
+  visitante: () => http.post<AuthResponse>("/auth/visitante", {}),
   me: () => http.get<{ usuario: Usuario }>("/auth/me"),
   editarPerfil: (body: PerfilBody) => http.patch<{ usuario: Usuario }>("/auth/me", body),
 

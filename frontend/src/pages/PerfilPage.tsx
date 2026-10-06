@@ -12,13 +12,25 @@ interface Props {
 
 /** Dados da conta: nome, email, aparencia, troca de senha e sair. */
 export function PerfilPage({ usuario, onAtualizado, onSair }: Props) {
+  // Visitante so troca a aparencia: o back recusa nome, email e senha.
+  const visitante = usuario.papel === "visitante";
+  const pergunta = visitante
+    ? "Sair do modo visitante? Os dados de exemplo não poderão ser abertos de novo."
+    : `Sair de ${usuario.email}?`;
   return (
     <>
-      <DadosCard usuario={usuario} onAtualizado={onAtualizado} />
+      {visitante ? (
+        <section className="card">
+          <h2 className="card-title">Modo visitante</h2>
+          <p className="row-sub">Você está vendo dados de exemplo. Pode lançar, editar e apagar à vontade: esse acesso e os dados dele são apagados em 24h.</p>
+        </section>
+      ) : (
+        <DadosCard usuario={usuario} onAtualizado={onAtualizado} />
+      )}
       <AparenciaCard usuario={usuario} onAtualizado={onAtualizado} />
-      <SenhaCard />
+      {!visitante && <SenhaCard />}
       <section className="card">
-        <button type="button" className="btn ghost perfil-sair" onClick={() => confirm(`Sair de ${usuario.email}?`) && onSair()}>
+        <button type="button" className="btn ghost perfil-sair" onClick={() => confirm(pergunta) && onSair()}>
           Sair da conta
         </button>
       </section>
