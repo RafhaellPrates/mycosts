@@ -8,6 +8,8 @@ import { cartoesRouter } from "./cartoes/routes.js";
 import { exportRouter } from "./export/routes.js";
 import { lancamentosRouter } from "./lancamentos/routes.js";
 import { mesRouter } from "./mes/routes.js";
+import { notificacoesRouter } from "./notificacoes/routes.js";
+import { comprovantesRouter } from "./comprovantes/routes.js";
 import { HttpError, tratarErro } from "./http.js";
 import { pool } from "./pool.js";
 
@@ -43,6 +45,8 @@ api.use("/mes", mesRouter);
 api.use("/lancamentos", lancamentosRouter);
 api.use("/cartoes", cartoesRouter);
 api.use("/export", exportRouter);
+api.use("/notificacoes", notificacoesRouter);
+api.use("/comprovantes", comprovantesRouter);
 api.use(cadastroRouter);
 api.use((_req, _res) => {
   throw new HttpError(404, "Rota nao encontrada.");

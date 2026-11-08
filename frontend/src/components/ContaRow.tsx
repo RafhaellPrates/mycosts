@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, Clock, Paperclip } from "lucide-react";
 import type { Conta } from "../api/types.ts";
 import { money } from "../lib/format.ts";
 import { prazoDe } from "../lib/vencimento.ts";
@@ -26,7 +26,10 @@ export function ContaRow({ conta, ym, onPress }: Props) {
   return (
     <button type="button" className={`row ${prazo ? `prazo-${prazo.nivel}` : ""}`} onClick={() => onPress(conta)}>
       <div className="row-main">
-        <span className="row-name">{conta.nome}</span>
+        <span className="row-name">
+          {conta.nome}
+          {conta.comprovantes > 0 && <Paperclip className="clipe" aria-label={`${conta.comprovantes} comprovante(s)`} />}
+        </span>
         <span className="row-sub">
           {conta.cartaoId ? "Fatura do cartão" : conta.categoria}
           {!prazo && conta.diaVenc ? ` · vence dia ${conta.diaVenc}` : ""}

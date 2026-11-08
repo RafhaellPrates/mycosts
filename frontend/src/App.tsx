@@ -1,18 +1,19 @@
-import { ChartPie, CreditCard, Receipt, SlidersHorizontal, UserRound, UsersRound, Wallet, type LucideIcon } from "lucide-react";
+import { CreditCard, House, Plus, Receipt, UserRound, Wallet, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "./api/index.ts";
 import { getToken, onSessaoExpirada, setToken } from "./api/client.ts";
 import type { AuthResponse, Usuario } from "./api/types.ts";
+import { Avatar } from "./components/Avatar.tsx";
 import { MonthPicker } from "./components/MonthPicker.tsx";
 import { useMes } from "./hooks/useMes.ts";
 import { aplicarAparencia } from "./lib/aparencia.ts";
 import { currentYm } from "./lib/format.ts";
-import { AcessosPage } from "./pages/AcessosPage.tsx";
-import { CadastroPage } from "./pages/CadastroPage.tsx";
+import { LancamentoSheet } from "./components/LancamentoSheet.tsx";
+import { temNovidade } from "./lib/novidades.ts";
 import { CartoesPage } from "./pages/CartoesPage.tsx";
+import { InicioPage } from "./pages/InicioPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { MesPage } from "./pages/MesPage.tsx";
-import { PainelPage } from "./pages/PainelPage.tsx";
 import { PerfilPage } from "./pages/PerfilPage.tsx";
 
 type Sessao = { estado: "verificando" } | { estado: "fora" } | { estado: "dentro"; usuario: Usuario };
@@ -58,14 +59,12 @@ export default function App() {
   );
 }
 
-type Tab = "painel" | "mes" | "cartoes" | "cadastro" | "acessos" | "perfil";
+type Tab = "inicio" | "mes" | "cartoes" | "perfil";
 
-const TABS: { id: Tab; label: string; Icon: LucideIcon; soAdmin?: boolean }[] = [
-  { id: "painel", label: "Painel", Icon: ChartPie },
+const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
+  { id: "inicio", label: "Início", Icon: House },
   { id: "mes", label: "Mês", Icon: Receipt },
   { id: "cartoes", label: "Cartões", Icon: CreditCard },
-  { id: "cadastro", label: "Cadastro", Icon: SlidersHorizontal },
-  { id: "acessos", label: "Acessos", Icon: UsersRound, soAdmin: true },
   { id: "perfil", label: "Perfil", Icon: UserRound },
 ];
 
@@ -77,16 +76,24 @@ interface AppLogadoProps {
 
 /**
  * Uma navegacao so: no celular e a barra de abas embaixo, no PC (>= 900px)
- * o CSS transforma em barra lateral a esquerda.
+ * o CSS transforma em barra lateral a esquerda. Cadastro e Acessos ficam
+ * dentro do Perfil. O botao + de gasto aparece em todas as abas menos Perfil.
  */
 function AppLogado({ usuario, onAtualizado, onSair }: AppLogadoProps) {
   const [ym, setYm] = useState(currentYm);
-  // Painel e a aba principal.
-  const [tab, setTab] = useState<Tab>("painel");
+  const [tab, setTab] = useState<Tab>("inicio");
+  const [novoGasto, setNovoGasto] = useState(false);
+  // Muda a cada gasto lancado: a aba Cartoes recarrega a fatura.
+  const [versao, setVersao] = useState(0);
+  const [novidade, setNovidade] = useState(temNovidade);
   const mes = useMes(ym);
-  const comMes = tab === "mes" || tab === "painel";
-  const tabs = TABS.filter((t) => !t.soAdmin || usuario.papel === "admin");
-  const atual = tabs.find((t) => t.id === tab) ?? tabs[0];
+  const comMes = tab === "mes" || tab === "inicio";
+  const atual = TABS.find((t) => t.id === tab) ?? TABS[0];
+
+  function irPara(t: Tab) {
+    setTab(t);
+    window.scrollTo({ top: 0 });
+  }
 
   return (
     <div className="shell">
@@ -95,34 +102,68 @@ function AppLogado({ usuario, onAtualizado, onSair }: AppLogadoProps) {
           <Wallet aria-hidden="true" />
           MyCosts
         </div>
-        {tabs.map(({ id, label, Icon }) => (
-          <button key={id} type="button" aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}>
-            <Icon className="ico" aria-hidden="true" />
+        {TABS.map(({ id, label, Icon }) => (
+          <button key={id} type="button" aria-current={tab === id ? "page" : undefined} onClick={() => irPara(id)}>
+            <span className="nav-ico">
+              <Icon className="ico" aria-hidden="true" />
+              {id === "perfil" && novidade && <span className="nav-ponto" aria-label="novidade" />}
+            </span>
             {label}
           </button>
         ))}
-        <div className="nav-user">Olá, {usuario.nome}</div>
+        <div className="nav-user">
+          <Avatar usuario={usuario} tamanho={32} />
+          <span>{usuario.nome}</span>
+        </div>
       </nav>
 
       <div className="content">
         <header className="app-header">
           <div className="header-brand">
-            <div className="app-title">MyCosts</div>
-            <div className="app-ola">Olá, {usuario.nome}</div>
+            <div className="app-ola">Olá, {usuario.nome.split(" ")[0]}</div>
+            <div className="app-title">{atual.label}</div>
           </div>
           <h1 className="page-title">{atual.label}</h1>
           {comMes && <MonthPicker ym={ym} onChange={setYm} />}
         </header>
 
         <main className="app-main">
+          {tab === "inicio" && <InicioPage ym={ym} mes={mes} versao={versao} onVerMes={() => irPara("mes")} />}
           {tab === "mes" && <MesPage ym={ym} mes={mes} />}
-          {tab === "painel" && <PainelPage ym={ym} mes={mes} />}
-          {tab === "cartoes" && <CartoesPage />}
-          {tab === "cadastro" && <CadastroPage onMudou={() => void mes.reload(true)} />}
-          {tab === "acessos" && usuario.papel === "admin" && <AcessosPage usuarioId={usuario.id} onProprioMudou={() => void api.me().then((r) => onAtualizado(r.usuario))} />}
-          {tab === "perfil" && <PerfilPage usuario={usuario} onAtualizado={onAtualizado} onSair={onSair} />}
+          {tab === "cartoes" && <CartoesPage versao={versao} />}
+          {tab === "perfil" && (
+            <PerfilPage
+              usuario={usuario}
+              onAtualizado={onAtualizado}
+              onSair={onSair}
+              onCadastroMudou={() => void mes.reload(true)}
+              onProprioAcessoMudou={() => void api.me().then((r) => onAtualizado(r.usuario))}
+              novidade={novidade}
+              onNovidadesVistas={() => setNovidade(false)}
+            />
+          )}
         </main>
       </div>
+
+      {tab !== "perfil" && !novoGasto && (
+        <button type="button" className="fab" aria-label="Lançar gasto" onClick={() => setNovoGasto(true)}>
+          <Plus aria-hidden="true" />
+        </button>
+      )}
+      {novoGasto && (
+        <LancamentoSheet
+          lancamento={null}
+          ym={ym}
+          onClose={() => setNovoGasto(false)}
+          onSave={async (body) => {
+            const salvo = await mes.salvarLancamento(null, body);
+            setVersao((v) => v + 1);
+            return salvo;
+          }}
+          onDelete={() => Promise.resolve()}
+          onComprovantes={() => void mes.reload(true)}
+        />
+      )}
     </div>
   );
 }

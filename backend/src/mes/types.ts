@@ -13,6 +13,8 @@ export interface Conta {
   situacao: Situacao;
   /** Conta da fatura de um cartao: previsto = fatura que vence no mes. */
   cartaoId: string | null;
+  /** Comprovantes do pagamento neste mes (so na tela do mes). */
+  comprovantes?: number;
 }
 
 export interface Receita {
@@ -41,6 +43,8 @@ export interface Lancamento {
   /** Qual parcela cai neste mes (1..parcelas). */
   parcela: number;
   valorTotal: number;
+  /** Quantos comprovantes anexados. */
+  comprovantes: number;
 }
 
 export interface Indicadores {

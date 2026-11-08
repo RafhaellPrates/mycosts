@@ -15,6 +15,10 @@ const patchConta = z.object({
 });
 const patchReceita = z.object({ valor: dinheiro.nullable() });
 
+/** Quantos comprovantes o pagamento da conta `c` tem no mes do parametro. */
+const COMPROVANTES_DA_CONTA = (mes: string) =>
+  `(select count(*)::int from comprovantes k where k.conta_id = c.id and k.ym = ${mes}) as comprovantes`;
+
 const CONTA_MES = `c.id, c.nome, c.categoria, c.dia_venc as "diaVenc", c.previsto, c.cartao_id as "cartaoId"`;
 
 /**
@@ -72,7 +76,7 @@ mesRouter.get("/:ym", async (req, res) => {
   const [contasDoBanco, receitas, lancamentos, ano, faturas] = await Promise.all([
     // Conta desativada ainda aparece nos meses em que teve lancamento.
     pool.query<Conta>(
-      `select ${CONTA_MES}, p.pago, coalesce(p.situacao, '') as situacao
+      `select ${CONTA_MES}, p.pago, coalesce(p.situacao, '') as situacao, ${COMPROVANTES_DA_CONTA("$2")}
        from contas c
        left join pagamentos p on p.conta_id = c.id and p.ym = $2
        where c.usuario_id = $1 and (c.ativa or p.conta_id is not null)
@@ -128,7 +132,7 @@ mesRouter.patch("/:ym/contas/:id", async (req, res) => {
          set pago = excluded.pago, situacao = excluded.situacao, atualizado_em = now()
        returning pago, situacao
      )
-     select ${CONTA_MES}, up.pago, coalesce(up.situacao, '') as situacao from c, up`,
+     select ${CONTA_MES}, up.pago, coalesce(up.situacao, '') as situacao, ${COMPROVANTES_DA_CONTA("$3")} from c, up`,
     [id, usuarioDe(req), mes, pago, situacao || null],
   );
   if (!rows[0]) throw new HttpError(404, "Conta nao encontrada.");

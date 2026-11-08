@@ -25,7 +25,7 @@ const CORES: { chave: Cor; label: string }[] = [
 ];
 
 /** Atalhos para a cor principal; o seletor ao lado aceita qualquer cor. */
-const SUGESTOES = ["#0f766e", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#475569"];
+const SUGESTOES = ["#2563eb", "#0f766e", "#7c3aed", "#db2777", "#ea580c", "#475569"];
 
 // Espera a pessoa parar de mexer antes de salvar no banco.
 const ESPERA_MS = 700;

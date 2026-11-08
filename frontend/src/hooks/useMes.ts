@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/index.ts";
-import type { LancamentoBody, MesResponse, PatchContaBody, PatchReceitaBody } from "../api/types.ts";
+import type { Lancamento, LancamentoBody, MesResponse, PatchContaBody, PatchReceitaBody } from "../api/types.ts";
 
 interface State {
   data: MesResponse | null;
@@ -51,10 +51,10 @@ export function useMes(ym: string) {
 
   /** id null = lancamento novo. */
   const salvarLancamento = useCallback(
-    async (id: string | null, body: LancamentoBody) => {
-      if (id) await api.editarLancamento(id, body);
-      else await api.criarLancamento(body);
+    async (id: string | null, body: LancamentoBody): Promise<Lancamento> => {
+      const salvo = id ? await api.editarLancamento(id, body) : await api.criarLancamento(body);
       await load(true);
+      return salvo;
     },
     [load],
   );

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { HttpError } from "../http.js";
 import { pool } from "../pool.js";
-import { type Compra, fechamentoQueVenceEm, hojeBR, itensDaFatura, totalDe } from "../cartoes/fatura.js";
+import { type Compra, cobrancasDaAssinatura, fechamentoQueVenceEm, hojeBR, itensDaFatura, totalDe } from "../cartoes/fatura.js";
 import { USUARIO_COLS, type UsuarioRow } from "./validacao.js";
 
 /**
@@ -65,7 +65,12 @@ const CONTAS: [string, string, number, number][] = [
   ["Internet", "Utilidades", 20, 120],
   ["Plano de saúde", "Saúde", 12, 380],
   ["Academia", "Saúde", 8, 110],
-  ["Streaming", "Lazer", 18, 55],
+];
+
+/** [mes relativo da primeira cobranca, dia, nome, valor]: cobradas no cartao todo mes. */
+const ASSINATURAS: [number, number, string, number][] = [
+  [-3, 18, "Streaming de vídeo", 55.9],
+  [-2, 9, "Música", 21.9],
 ];
 // Conta de luz varia mes a mes; o resto e pago no valor previsto.
 const ENERGIA = [198.4, 241.7, 215.3, 229.9];
@@ -122,6 +127,13 @@ async function semear(client: pg.PoolClient, usuarioId: string) {
     [usuarioId, CARTAO.nome, CARTAO.fechamento, CARTAO.vencimento, CARTAO.limite],
   );
 
+  const { rows: assinaturas } = await client.query<{ id: string; nome: string; valor: number; inicio: string }>(
+    `insert into assinaturas (usuario_id, cartao_id, nome, valor, inicio)
+     select $1, $2, a.nome, a.valor, a.inicio from unnest($3::text[], $4::numeric[], $5::date[]) a(nome, valor, inicio)
+     returning id, nome, valor, to_char(inicio, 'YYYY-MM-DD') as inicio`,
+    [usuarioId, cartao.id, ASSINATURAS.map((a) => a[2]), ASSINATURAS.map((a) => a[3]), ASSINATURAS.map(([k, dia]) => dataDe(k, dia))],
+  );
+
   const contas = [...CONTAS, [CARTAO.nome, "Cartões", CARTAO.vencimento, 0] as const];
   const { rows: contasIds } = await client.query<{ id: string; nome: string }>(
     `insert into contas (usuario_id, nome, categoria, dia_venc, previsto, ordem, cartao_id)
@@ -162,7 +174,8 @@ async function semear(client: pg.PoolClient, usuarioId: string) {
   // Pagamentos: meses passados quitados; no atual, so o que ja venceu.
   const compras: Compra[] = avulsos
     .filter((a) => a.cartaoId)
-    .map((a, i) => ({ id: String(i), data: a.data, descricao: a.descricao, valor: a.valor, parcelas: a.parcelas }));
+    .map((a, i) => ({ id: String(i), data: a.data, descricao: a.descricao, valor: a.valor, parcelas: a.parcelas }))
+    .concat(assinaturas.flatMap((a) => cobrancasDaAssinatura({ ...a, valor: Number(a.valor), canceladaEm: null }, hoje)));
   const pagamentos: { contaId: string; ym: string; pago: number | null; situacao: string }[] = [];
   MESES.forEach((k, i) => {
     const ym = ymDe(k);

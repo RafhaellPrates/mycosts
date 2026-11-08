@@ -60,6 +60,7 @@ export function FaturaSheet({ cartao, onClose }: Props) {
                     <span className="row-sub">
                       {dayMonth(i.data)}
                       {i.parcelas > 1 && ` · parcela ${i.parcela}/${i.parcelas}`}
+                      {i.assinatura && " · assinatura"}
                     </span>
                   </div>
                   <div className="row-side">

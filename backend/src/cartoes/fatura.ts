@@ -68,6 +68,8 @@ export interface Compra {
   /** Total da compra. */
   valor: number;
   parcelas: number;
+  /** Cobranca mensal de uma assinatura (id = id da assinatura). */
+  assinatura?: boolean;
 }
 
 export interface ItemFatura {
@@ -77,7 +79,46 @@ export interface ItemFatura {
   parcela: number;
   parcelas: number;
   valor: number;
+  assinatura: boolean;
 }
+
+export interface Assinatura {
+  id: string;
+  nome: string;
+  valor: number;
+  /** AAAA-MM-DD da primeira cobranca; as seguintes caem no mesmo dia. */
+  inicio: string;
+  /** AAAA-MM-DD; cobranca desse dia em diante nao acontece. */
+  canceladaEm: string | null;
+}
+
+/** Cobrancas da assinatura do inicio ate `ate` (inclusive) ou ate o cancelamento. */
+export function cobrancasDaAssinatura(a: Assinatura, ate: Data): Compra[] {
+  const inicio = deTexto(a.inicio);
+  const fim = a.canceladaEm ? deTexto(a.canceladaEm) : null;
+  const lista: Compra[] = [];
+  for (let k = 0; ; k++) {
+    const data = em(inicio.y, inicio.m + k, inicio.d);
+    if (ms(data) > ms(ate) || (fim && ms(data) >= ms(fim))) break;
+    lista.push({ id: a.id, data: texto(data), descricao: a.nome, valor: a.valor, parcelas: 1, assinatura: true });
+  }
+  return lista;
+}
+
+/** Proxima cobranca a partir de hoje (inclusive), ou null se cancelada antes dela. */
+export function proximaCobranca(a: Assinatura, hoje: Data): string | null {
+  const inicio = deTexto(a.inicio);
+  const fim = a.canceladaEm ? deTexto(a.canceladaEm) : null;
+  for (let k = 0; k < 1200; k++) {
+    const data = em(inicio.y, inicio.m + k, inicio.d);
+    if (fim && ms(data) >= ms(fim)) return null;
+    if (ms(data) >= ms(hoje)) return texto(data);
+  }
+  return null;
+}
+
+/** Soma `meses` meses a data (dia limitado ao fim do mes). */
+export const maisMeses = (x: Data, meses: number) => em(x.y, x.m + meses, x.d);
 
 /** Compras e parcelas que caem na fatura que fecha em `fechamento`. A ultima parcela absorve o arredondamento. */
 export function itensDaFatura(compras: Compra[], fechamento: Data, diaFechamento: number): ItemFatura[] {
@@ -89,7 +130,15 @@ export function itensDaFatura(compras: Compra[], fechamento: Data, diaFechamento
       if (!mesmoMes(fechamentoMais(primeira, k, diaFechamento), fechamento)) continue;
       const ultima = k === compra.parcelas - 1;
       const valor = ultima ? Math.round((compra.valor - parcela * (compra.parcelas - 1)) * 100) / 100 : parcela;
-      itens.push({ id: compra.id, descricao: compra.descricao, data: compra.data, parcela: k + 1, parcelas: compra.parcelas, valor });
+      itens.push({
+        id: compra.id,
+        descricao: compra.descricao,
+        data: compra.data,
+        parcela: k + 1,
+        parcelas: compra.parcelas,
+        valor,
+        assinatura: compra.assinatura ?? false,
+      });
     }
   }
   return itens;

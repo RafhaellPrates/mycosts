@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Conta, PatchContaBody, Situacao } from "../api/types.ts";
 import { money, parseMoney, toInput } from "../lib/format.ts";
+import { Comprovantes } from "./Comprovantes.tsx";
 import { MoneyInput } from "./MoneyInput.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { notificar } from "../lib/notificar.ts";
@@ -10,6 +11,10 @@ interface Props {
   mesLabel: string;
   onClose: () => void;
   onSave: (body: PatchContaBody) => Promise<void>;
+  /** Mes aberto (AAAA-MM): o comprovante e do pagamento deste mes. */
+  ym: string;
+  /** Anexou ou apagou comprovante: o mes recarrega a contagem. */
+  onComprovantes: () => void;
 }
 
 const OPCOES: { value: Situacao; label: string }[] = [
@@ -19,7 +24,7 @@ const OPCOES: { value: Situacao; label: string }[] = [
 ];
 
 /** Dar baixa: valor pre-preenchido com o previsto, situacao padrao Pago. */
-export function ContaSheet({ conta, mesLabel, onClose, onSave }: Props) {
+export function ContaSheet({ conta, mesLabel, ym, onClose, onSave, onComprovantes }: Props) {
   const [valor, setValor] = useState(toInput(conta.pago ?? conta.previsto));
   const [situacao, setSituacao] = useState<Situacao>(conta.situacao === "" ? "Pago" : conta.situacao);
   const [saving, setSaving] = useState(false);
@@ -57,6 +62,9 @@ export function ContaSheet({ conta, mesLabel, onClose, onSave }: Props) {
       </div>
       {situacao !== "Não se aplica" && (
         <MoneyInput id="valor-pago" label="Valor pago" value={valor} onChange={setValor} autoFocus />
+      )}
+      {situacao !== "Não se aplica" && (
+        <Comprovantes alvo={{ conta: conta.id, ym }} pendentes={[]} onPendentes={() => undefined} onMudou={onComprovantes} />
       )}
       <div className="sheet-actions">
         <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>

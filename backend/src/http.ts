@@ -40,6 +40,10 @@ export const tratarErro: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(err.status).json({ erro: err.message });
     return;
   }
+  if (err?.type === "entity.too.large") {
+    res.status(413).json({ erro: "Arquivo muito grande." });
+    return;
+  }
   if (err?.type === "entity.parse.failed") {
     res.status(400).json({ erro: "JSON invalido." });
     return;
