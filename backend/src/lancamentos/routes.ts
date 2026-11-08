@@ -31,7 +31,8 @@ const COLUNAS = {
 
 // to_char: date do pg viraria Date do JS e poderia mudar de dia pelo fuso.
 const BASE = `l.id, to_char(l.data, 'YYYY-MM-DD') as data, l.descricao, l.categoria,
-  l.forma_pagamento as "formaPagamento", l.cartao_id as "cartaoId", l.parcelas, l.valor as "valorTotal"`;
+  l.forma_pagamento as "formaPagamento", l.cartao_id as "cartaoId", l.parcelas, l.valor as "valorTotal",
+  (select count(*)::int from comprovantes c where c.lancamento_id = l.id) as comprovantes`;
 
 /**
  * Avulsos que caem no mes. Parcelada vira uma linha por parcela: a parcela k

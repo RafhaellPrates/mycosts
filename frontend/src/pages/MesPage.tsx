@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { useState } from "react";
 import type { Conta, Lancamento, Receita } from "../api/types.ts";
 import { AcoesLinha } from "../components/AcoesLinha.tsx";
@@ -19,7 +19,7 @@ interface Props {
 export function MesPage({ ym, mes }: Props) {
   const [contaAberta, setContaAberta] = useState<Conta | null>(null);
   const [receitaAberta, setReceitaAberta] = useState<Receita | null>(null);
-  const [lancAberto, setLancAberto] = useState<Lancamento | "novo" | null>(null);
+  const [lancAberto, setLancAberto] = useState<Lancamento | null>(null);
   const label = monthLabel(ym);
 
   async function apagarGasto(l: Lancamento) {
@@ -70,7 +70,7 @@ export function MesPage({ ym, mes }: Props) {
       <ResumoCard ind={data.indicadores} />
 
       {data.contas.length === 0 ? (
-        <div className="state">Nenhuma conta cadastrada. Use a aba Cadastro.</div>
+        <div className="state">Nenhuma conta cadastrada. Cadastre em Perfil &gt; Contas e receitas.</div>
       ) : (
         <>
           {pendentes.length > 0 && (
@@ -109,13 +109,18 @@ export function MesPage({ ym, mes }: Props) {
       <section className="card">
         <h2 className="card-title">Gastos avulsos · {money(data.indicadores.avulsosMes)}</h2>
         {data.lancamentos.length === 0 ? (
-          <div className="state">Nenhum gasto avulso neste mês. Use o botão + para lançar.</div>
+          <p className="vazio">Nenhum gasto avulso neste mês. Use o botão + para lançar.</p>
         ) : (
           <div className="list">
             {data.lancamentos.map((l) => (
               <div key={l.id} className="row row-com-acoes">
                 <div className="row-main">
-                  <span className="row-name">{l.descricao}</span>
+                  <span className="row-name">
+                    {l.descricao}
+                    {l.comprovantes > 0 && (
+                      <Paperclip className="clipe" aria-label={`${l.comprovantes} comprovante(s)`} />
+                    )}
+                  </span>
                   <span className="row-sub">
                     {dayMonth(l.data)} · {l.categoria} · {l.formaPagamento}
                     {l.cartaoId
@@ -170,21 +175,19 @@ export function MesPage({ ym, mes }: Props) {
           mesLabel={label}
           onClose={() => setContaAberta(null)}
           onSave={(body) => mes.salvarConta(contaAberta.id, body)}
+          ym={ym}
+          onComprovantes={() => void mes.reload(true)}
         />
       )}
       {lancAberto && (
         <LancamentoSheet
-          lancamento={lancAberto === "novo" ? null : lancAberto}
+          lancamento={lancAberto}
           ym={ym}
           onClose={() => setLancAberto(null)}
-          onSave={(body) => mes.salvarLancamento(lancAberto === "novo" ? null : lancAberto.id, body)}
-          onDelete={() => (lancAberto === "novo" ? Promise.resolve() : mes.apagarLancamento(lancAberto.id))}
+          onSave={(body) => mes.salvarLancamento(lancAberto.id, body)}
+          onDelete={() => mes.apagarLancamento(lancAberto.id)}
+          onComprovantes={() => void mes.reload(true)}
         />
-      )}
-      {!lancAberto && (
-        <button type="button" className="fab" aria-label="Novo gasto" onClick={() => setLancAberto("novo")}>
-          <Plus aria-hidden="true" />
-        </button>
       )}
       {receitaAberta && (
         <ReceitaSheet

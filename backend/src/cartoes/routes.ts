@@ -5,13 +5,18 @@ import { HttpError, dinheiro, setDe, usuarioDe, uuid, ym } from "../http.js";
 import { pool } from "../pool.js";
 import { CATEGORIA_CARTOES } from "../cadastro/categorias.js";
 import {
+  type Assinatura,
   type Compra,
+  cobrancasDaAssinatura,
+  deTexto,
   diasEntre,
   fechamentoDaCompra,
   fechamentoQueVenceEm,
   hojeBR,
   itensDaFatura,
+  maisMeses,
   parcelasEmAndamento,
+  proximaCobranca,
   texto,
   totalDe,
   vencimentoDaFatura,
@@ -54,20 +59,47 @@ const COMPRAS = `select id, cartao_id as "cartaoId", to_char(data, 'YYYY-MM-DD')
   from lancamentos where usuario_id = $1 and cartao_id is not null and data >= current_date - interval '5 years'
   order by data`;
 
+interface AssinaturaRow extends Assinatura {
+  cartaoId: string;
+}
+
+const ASSINATURAS = `select id, cartao_id as "cartaoId", nome, valor, to_char(inicio, 'YYYY-MM-DD') as inicio,
+  to_char(cancelada_em, 'YYYY-MM-DD') as "canceladaEm"
+  from assinaturas where usuario_id = $1 order by cancelada_em nulls first, criado_em`;
+
+// Faturas futuras (MonthPicker da fatura) ate 3 anos para frente ja mostram as assinaturas.
+const HORIZONTE_MESES = 36;
+
+/**
+ * Tudo que cai nas faturas do usuario: compras no cartao e as cobrancas
+ * mensais das assinaturas. As assinaturas vao junto para a tela de Cartoes.
+ */
+async function comprasDoUsuario(usuarioId: string) {
+  const [compras, assinaturas] = await Promise.all([
+    pool.query<CompraRow>(COMPRAS, [usuarioId]),
+    pool.query<AssinaturaRow>(ASSINATURAS, [usuarioId]),
+  ]);
+  const ate = maisMeses(hojeBR(), HORIZONTE_MESES);
+  const cobrancas: CompraRow[] = assinaturas.rows.flatMap((a) =>
+    cobrancasDaAssinatura(a, ate).map((c) => ({ ...c, cartaoId: a.cartaoId })),
+  );
+  return { compras: [...compras.rows, ...cobrancas], assinaturas: assinaturas.rows };
+}
+
 /**
  * Fatura de cada cartao que vence no mes ('YYYY-MM'). E o previsto da conta
  * do cartao na tela do mes.
  */
 export async function faturasQueVencem(usuarioId: string, mes: string): Promise<Map<string, number>> {
   const [y, m] = mes.split("-").map(Number);
-  const [cartoes, compras] = await Promise.all([
+  const [cartoes, { compras }] = await Promise.all([
     pool.query<CartaoRow>(`select ${SELECT} from cartoes where usuario_id = $1`, [usuarioId]),
-    pool.query<CompraRow>(COMPRAS, [usuarioId]),
+    comprasDoUsuario(usuarioId),
   ]);
   return new Map(
     cartoes.rows.map((c) => {
       const fechamento = fechamentoQueVenceEm(y, m, c.diaFechamento, c.diaVencimento);
-      const doCartao = compras.rows.filter((x) => x.cartaoId === c.id);
+      const doCartao = compras.filter((x) => x.cartaoId === c.id);
       return [c.id, totalDe(itensDaFatura(doCartao, fechamento, c.diaFechamento))];
     }),
   );
@@ -84,17 +116,23 @@ cartoesRouter.use(exigirLogin);
  */
 cartoesRouter.get("/", async (req, res) => {
   const usuario = usuarioDe(req);
-  const [cartoes, compras] = await Promise.all([
+  const [cartoes, { compras, assinaturas }] = await Promise.all([
     pool.query<CartaoRow>(`select ${SELECT} from cartoes where usuario_id = $1 order by criado_em`, [usuario]),
-    pool.query<CompraRow>(COMPRAS, [usuario]),
+    comprasDoUsuario(usuario),
   ]);
   const hoje = hojeBR();
+  const textoHoje = texto(hoje);
 
   const lista = cartoes.rows.map((c) => {
     const fechaHoje = fechamentoDaCompra(hoje, c.diaFechamento);
     const venceHoje = vencimentoDaFatura(fechaHoje, c.diaVencimento);
-    const doCartao = compras.rows.filter((x) => x.cartaoId === c.id);
+    const doCartao = compras.filter((x) => x.cartaoId === c.id);
     const fatura = totalDe(itensDaFatura(doCartao, fechaHoje, c.diaFechamento));
+    // Cancelada continua na lista por um mes depois do cancelamento, depois some.
+    const suas = assinaturas
+      .filter((a) => a.cartaoId === c.id)
+      .filter((a) => !a.canceladaEm || texto(maisMeses(deTexto(a.canceladaEm), 1)) >= textoHoje)
+      .map(({ cartaoId: _, ...a }) => ({ ...a, ativa: !a.canceladaEm || a.canceladaEm > textoHoje, proxima: proximaCobranca(a, hoje) }));
     return {
       ...c,
       faturaAtual: fatura,
@@ -104,6 +142,8 @@ cartoesRouter.get("/", async (req, res) => {
       melhorDiaHoje: hoje.d === c.melhorDia,
       estourado: c.limite !== null && fatura >= c.limite,
       parcelamentos: parcelasEmAndamento(doCartao, fechaHoje, c.diaFechamento, c.diaVencimento).reverse(),
+      assinaturas: suas,
+      assinaturasMes: Math.round(suas.filter((a) => a.ativa).reduce((t, a) => t + a.valor, 0) * 100) / 100,
     };
   });
 
@@ -119,9 +159,9 @@ cartoesRouter.get("/:id/fatura/:ym", async (req, res) => {
   const id = uuid.parse(req.params.id);
   const mes = ym.parse(req.params.ym);
   const usuario = usuarioDe(req);
-  const [cartao, compras, pagamento] = await Promise.all([
+  const [cartao, { compras }, pagamento] = await Promise.all([
     pool.query<CartaoRow>(`select ${SELECT} from cartoes where id = $1 and usuario_id = $2`, [id, usuario]),
-    pool.query<CompraRow>(COMPRAS, [usuario]),
+    comprasDoUsuario(usuario),
     pool.query<{ pago: number | null; situacao: string | null }>(
       `select p.pago, p.situacao from contas c join pagamentos p on p.conta_id = c.id and p.ym = $3
        where c.cartao_id = $1 and c.usuario_id = $2`,
@@ -132,7 +172,7 @@ cartoesRouter.get("/:id/fatura/:ym", async (req, res) => {
   if (!c) throw new HttpError(404, "Cartao nao encontrado.");
   const [y, m] = mes.split("-").map(Number);
   const fechamento = fechamentoQueVenceEm(y, m, c.diaFechamento, c.diaVencimento);
-  const itens = itensDaFatura(compras.rows.filter((x) => x.cartaoId === c.id), fechamento, c.diaFechamento);
+  const itens = itensDaFatura(compras.filter((x) => x.cartaoId === c.id), fechamento, c.diaFechamento);
   res.json({
     ym: mes,
     fechaEm: texto(fechamento),
@@ -186,5 +226,75 @@ cartoesRouter.delete("/:id", async (req, res) => {
   await pool.query("update contas set ativa = false where cartao_id = $1 and usuario_id = $2", [id, usuario]);
   const { rowCount } = await pool.query("delete from cartoes where id = $1 and usuario_id = $2", [id, usuario]);
   if (!rowCount) throw new HttpError(404, "Cartao nao encontrado.");
+  res.status(204).end();
+});
+
+// ---- assinaturas ----
+
+const assinaturaCampos = z.object({
+  nome: z.string().trim().min(1, "Informe o nome.").max(60),
+  valor: dinheiro.refine((v) => v > 0, "Valor precisa ser maior que zero."),
+  inicio: z.iso.date("Data invalida."),
+});
+const SELECT_ASSINATURA = `id, cartao_id as "cartaoId", nome, valor, to_char(inicio, 'YYYY-MM-DD') as inicio,
+  to_char(cancelada_em, 'YYYY-MM-DD') as "canceladaEm"`;
+
+/** Assinatura nova no cartao: entra como cobranca mensal na fatura a partir de `inicio`. */
+cartoesRouter.post("/:id/assinaturas", async (req, res) => {
+  const cartao = uuid.parse(req.params.id);
+  const a = assinaturaCampos.parse(req.body);
+  const { rows } = await pool.query(
+    `insert into assinaturas (usuario_id, cartao_id, nome, valor, inicio)
+     select usuario_id, id, $3, $4, $5 from cartoes where id = $1 and usuario_id = $2
+     returning ${SELECT_ASSINATURA}`,
+    [cartao, usuarioDe(req), a.nome, a.valor, a.inicio],
+  );
+  if (!rows[0]) throw new HttpError(404, "Cartao nao encontrado.");
+  res.status(201).json(rows[0]);
+});
+
+/**
+ * Edita nome, valor, inicio ou o cartao. O valor novo vale para todas as
+ * cobrancas, inclusive as que ja passaram (o que foi pago fica na conta do cartao).
+ */
+cartoesRouter.patch("/assinaturas/:id", async (req, res) => {
+  const id = uuid.parse(req.params.id);
+  const usuario = usuarioDe(req);
+  const dados = assinaturaCampos.extend({ cartaoId: uuid }).partial().parse(req.body);
+  if (dados.cartaoId) {
+    const { rowCount } = await pool.query("select 1 from cartoes where id = $1 and usuario_id = $2", [dados.cartaoId, usuario]);
+    if (!rowCount) throw new HttpError(404, "Cartao nao encontrado.");
+  }
+  const { sets, valores } = setDe(dados, { nome: "nome", valor: "valor", inicio: "inicio", cartaoId: "cartao_id" }, 3);
+  // Inicio novo depois do cancelamento: o cancelamento acompanha (nada e cobrado).
+  const ajuste = dados.inicio
+    ? `, cancelada_em = case when cancelada_em is null then null else greatest(cancelada_em, $${valores.length + 3}::date) end`
+    : "";
+  const { rows } = await pool.query(
+    `update assinaturas set ${sets}${ajuste} where id = $1 and usuario_id = $2 returning ${SELECT_ASSINATURA}`,
+    [id, usuario, ...valores, ...(dados.inicio ? [dados.inicio] : [])],
+  );
+  if (!rows[0]) throw new HttpError(404, "Assinatura nao encontrada.");
+  res.json(rows[0]);
+});
+
+/** Cancela na data (padrao hoje): cobranca desse dia em diante sai das faturas. null reativa. */
+cartoesRouter.post("/assinaturas/:id/cancelar", async (req, res) => {
+  const id = uuid.parse(req.params.id);
+  const { data } = z.object({ data: z.iso.date("Data invalida.").nullable().default(texto(hojeBR())) }).parse(req.body ?? {});
+  const { rows } = await pool.query(
+    `update assinaturas set cancelada_em = case when $3::date is null then null else greatest($3::date, inicio) end
+     where id = $1 and usuario_id = $2 returning ${SELECT_ASSINATURA}`,
+    [id, usuarioDe(req), data],
+  );
+  if (!rows[0]) throw new HttpError(404, "Assinatura nao encontrada.");
+  res.json(rows[0]);
+});
+
+/** Apaga de vez: some de todas as faturas, inclusive das passadas. */
+cartoesRouter.delete("/assinaturas/:id", async (req, res) => {
+  const id = uuid.parse(req.params.id);
+  const { rowCount } = await pool.query("delete from assinaturas where id = $1 and usuario_id = $2", [id, usuarioDe(req)]);
+  if (!rowCount) throw new HttpError(404, "Assinatura nao encontrada.");
   res.status(204).end();
 });

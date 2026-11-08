@@ -1,5 +1,10 @@
-import { baixar, http } from "./client.ts";
+import { baixar, buscarBlob, enviarArquivo, http } from "./client.ts";
 import type {
+  AlvoComprovante,
+  Comprovante,
+  Assinatura,
+  AssinaturaBody,
+  NotificacoesStatus,
   Cartao,
   CartaoBody,
   Fatura,
@@ -29,6 +34,9 @@ export const api = {
   visitante: () => http.post<AuthResponse>("/auth/visitante", {}),
   me: () => http.get<{ usuario: Usuario }>("/auth/me"),
   editarPerfil: (body: PerfilBody) => http.patch<{ usuario: Usuario }>("/auth/me", body),
+  trocarFoto: (foto: Blob) => enviarArquivo<{ usuario: Usuario }>("PUT", "/auth/me/foto", foto),
+  removerFoto: () => http.delete<{ usuario: Usuario }>("/auth/me/foto"),
+  foto: () => buscarBlob("/auth/me/foto"),
 
   // mes
   getMes: (ym: string) => http.get<MesResponse>(`/mes/${ym}`),
@@ -42,12 +50,34 @@ export const api = {
   editarLancamento: (id: string, body: Partial<LancamentoBody>) => http.patch<Lancamento>(`/lancamentos/${id}`, body),
   apagarLancamento: (id: string) => http.delete<void>(`/lancamentos/${id}`),
 
+  // comprovantes dos gastos
+  comprovantes: (alvo: AlvoComprovante) =>
+    http.get<{ comprovantes: Comprovante[] }>(`/comprovantes?${new URLSearchParams(alvo)}`),
+  anexarComprovante: (alvo: AlvoComprovante, arquivo: Blob, nome: string) =>
+    enviarArquivo<Comprovante>("POST", `/comprovantes?${new URLSearchParams(alvo)}`, arquivo, nome),
+  arquivoComprovante: (id: string) => buscarBlob(`/comprovantes/${id}`),
+  apagarComprovante: (id: string) => http.delete<void>(`/comprovantes/${id}`),
+
   // cartoes
   cartoes: () => http.get<CartoesResponse>("/cartoes"),
   criarCartao: (body: CartaoBody) => http.post<Cartao>("/cartoes", body),
   editarCartao: (id: string, body: Partial<CartaoBody>) => http.patch<Cartao>(`/cartoes/${id}`, body),
   apagarCartao: (id: string) => http.delete<void>(`/cartoes/${id}`),
   fatura: (id: string, ym: string) => http.get<Fatura>(`/cartoes/${id}/fatura/${ym}`),
+  criarAssinatura: (cartaoId: string, body: AssinaturaBody) =>
+    http.post<Assinatura>(`/cartoes/${cartaoId}/assinaturas`, body),
+  editarAssinatura: (id: string, body: Partial<AssinaturaBody> & { cartaoId?: string }) =>
+    http.patch<Assinatura>(`/cartoes/assinaturas/${id}`, body),
+  /** data null reativa. */
+  cancelarAssinatura: (id: string, data: string | null) =>
+    http.post<Assinatura>(`/cartoes/assinaturas/${id}/cancelar`, { data }),
+  apagarAssinatura: (id: string) => http.delete<void>(`/cartoes/assinaturas/${id}`),
+
+  // notificacoes (Web Push)
+  notificacoes: () => http.get<NotificacoesStatus>("/notificacoes"),
+  inscreverPush: (inscricao: PushSubscriptionJSON) => http.post<{ ok: true }>("/notificacoes/inscricao", inscricao),
+  desinscreverPush: (endpoint: string) => http.deleteCom<void>("/notificacoes/inscricao", { endpoint }),
+  testarPush: () => http.post<{ entregues: number }>("/notificacoes/teste", {}),
 
   // exportacao
   baixarPlanilha: (ano: string) => baixar(`/export/${ano}.xlsx`, `Controle_Financeiro_${ano}.xlsx`),

@@ -16,6 +16,8 @@ export interface Conta {
   situacao: Situacao;
   /** Conta da fatura de um cartao: previsto = fatura que vence no mes. */
   cartaoId: string | null;
+  /** Comprovantes do pagamento neste mes. */
+  comprovantes: number;
 }
 
 export interface Receita {
@@ -47,10 +49,12 @@ export interface Lancamento {
   /** Qual parcela cai neste mes (1..parcelas). */
   parcela: number;
   valorTotal: number;
+  /** Quantos comprovantes anexados. */
+  comprovantes: number;
 }
 
 /** valor = total da compra. */
-export type LancamentoBody = Omit<Lancamento, "id" | "parcela" | "valorTotal">;
+export type LancamentoBody = Omit<Lancamento, "id" | "parcela" | "valorTotal" | "comprovantes">;
 
 export interface Indicadores {
   receitasMes: number;
@@ -120,6 +124,8 @@ export interface Usuario {
   nome: string;
   papel: Papel;
   preferencias: Preferencias;
+  /** Muda a cada foto nova; null = sem foto. */
+  fotoVersao: number | null;
 }
 
 /** Acesso visto pelo admin na aba Acessos. */
@@ -193,6 +199,29 @@ export interface ItemFatura {
   parcela: number;
   parcelas: number;
   valor: number;
+  /** Cobranca mensal de uma assinatura. */
+  assinatura: boolean;
+}
+
+/** Cobranca mensal no cartao, no dia da primeira cobranca, ate cancelar. */
+export interface Assinatura {
+  id: string;
+  nome: string;
+  valor: number;
+  /** AAAA-MM-DD da primeira cobranca. */
+  inicio: string;
+  /** AAAA-MM-DD; cobranca desse dia em diante nao acontece. */
+  canceladaEm: string | null;
+  /** Ainda cobra (sem cancelamento ou cancelamento no futuro). */
+  ativa: boolean;
+  /** Proxima cobranca a partir de hoje; null se nao havera mais. */
+  proxima: string | null;
+}
+
+export interface AssinaturaBody {
+  nome: string;
+  valor: number;
+  inicio: string;
 }
 
 export interface Cartao extends CartaoBody {
@@ -207,6 +236,10 @@ export interface Cartao extends CartaoBody {
   estourado: boolean;
   /** Compras parceladas com parcela na fatura aberta ou nas seguintes. */
   parcelamentos: Parcelamento[];
+  /** Ativas e canceladas ha menos de um mes. */
+  assinaturas: Assinatura[];
+  /** Soma das ativas por mes. */
+  assinaturasMes: number;
 }
 
 export interface Parcelamento {
@@ -240,4 +273,30 @@ export interface CartoesResponse {
   /** Cartao com mais prazo sem passar do limite. */
   recomendado: string | null;
   hoje: string;
+}
+
+// ---- notificacoes ----
+
+export interface NotificacoesStatus {
+  /** null = servidor sem chaves VAPID (push desligado). */
+  chavePublica: string | null;
+  /** Aparelhos do usuario com notificacao ligada. */
+  aparelhos: number;
+}
+
+// ---- comprovantes ----
+
+/** De quem e o comprovante: um gasto ou o pagamento de uma conta no mes. */
+export type AlvoComprovante = { lancamento: string } | { conta: string; ym: string };
+
+export interface Comprovante {
+  id: string;
+  lancamentoId: string | null;
+  contaId: string | null;
+  ym: string | null;
+  nome: string;
+  tipo: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+  /** Bytes. */
+  tamanho: number;
+  criadoEm: string;
 }

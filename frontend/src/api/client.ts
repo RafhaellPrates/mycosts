@@ -98,6 +98,23 @@ export async function baixar(path: string, nomeArquivo: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/** Arquivo da API como Blob (o token vai no header, entao <img src> direto nao serve). */
+export async function buscarBlob(path: string): Promise<Blob> {
+  return (await send(path)).blob();
+}
+
+/** Envia um arquivo cru no corpo (PUT ou POST), com o tipo do proprio arquivo. */
+export function enviarArquivo<T>(metodo: "PUT" | "POST", path: string, arquivo: Blob, nome?: string): Promise<T> {
+  return request<T>(path, {
+    method: metodo,
+    body: arquivo,
+    headers: {
+      "Content-Type": arquivo.type || "application/octet-stream",
+      ...(nome ? { "X-Nome-Arquivo": encodeURIComponent(nome) } : {}),
+    },
+  });
+}
+
 export const http = {
   get: <T>(path: string) => request<T>(path),
   patch: <T>(path: string, body: unknown) =>
@@ -105,4 +122,7 @@ export const http = {
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  /** DELETE com corpo JSON. */
+  deleteCom: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "DELETE", body: JSON.stringify(body) }),
 };

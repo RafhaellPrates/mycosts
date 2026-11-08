@@ -11,8 +11,8 @@ const CHAVE = "mycosts.aparencia";
 
 /** Cores padrao de cada tema (as mesmas do index.css). */
 export const PADRAO = {
-  claro: { destaque: "#0f766e", receitas: "#15803d", gastos: "#b91c1c" },
-  escuro: { destaque: "#2dd4bf", receitas: "#4ade80", gastos: "#f87171" },
+  claro: { destaque: "#2563eb", receitas: "#15803d", gastos: "#b91c1c" },
+  escuro: { destaque: "#60a5fa", receitas: "#4ade80", gastos: "#f87171" },
 } as const;
 
 const VARS = ["--brand", "--brand-soft", "--on-brand", "--pos", "--neg", "--on-neg"];

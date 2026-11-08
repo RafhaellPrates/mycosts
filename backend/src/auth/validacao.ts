@@ -43,9 +43,12 @@ export interface UsuarioRow {
   nome: string;
   papel: "admin" | "usuario" | "visitante";
   preferencias: Preferencias;
+  fotoVersao: number | null;
 }
 
-export const USUARIO_COLS = "id, email, nome, papel, preferencias";
+// fotoVersao: segundos da ultima troca da foto (null = sem foto). O front usa para buscar a foto nova.
+export const USUARIO_COLS = `id, email, nome, papel, preferencias,
+  (select extract(epoch from f.atualizado_em)::int from fotos_perfil f where f.usuario_id = usuarios.id) as "fotoVersao"`;
 
 /** Postgres 23505 = unique violada: diz qual campo repetiu. */
 export function duplicado(e: unknown): string | null {

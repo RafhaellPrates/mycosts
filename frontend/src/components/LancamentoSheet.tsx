@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api/index.ts";
 import { FORMAS_PAGAMENTO, type Cartao, type FormaPagamento, type Lancamento, type LancamentoBody } from "../api/types.ts";
 import { currentYm, money, parseMoney, toInput } from "../lib/format.ts";
+import { enviarPendentes, type Pendente } from "../lib/comprovantes.ts";
+import { Comprovantes } from "./Comprovantes.tsx";
 import { MoneyInput } from "./MoneyInput.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { notificar } from "../lib/notificar.ts";
@@ -11,8 +13,11 @@ interface Props {
   lancamento: Lancamento | null;
   ym: string;
   onClose: () => void;
-  onSave: (body: LancamentoBody) => Promise<void>;
+  /** Devolve o gasto salvo: no gasto novo, os comprovantes sobem com o id dele. */
+  onSave: (body: LancamentoBody) => Promise<Lancamento | void>;
   onDelete: () => Promise<void>;
+  /** Comprovantes mudaram: recarrega a contagem no mes. */
+  onComprovantes: () => void;
 }
 
 // Fatura e conta fixa; compra no cartao vai pela forma de pagamento.
@@ -26,7 +31,7 @@ function dataPadrao(ym: string): string {
 }
 
 /** Gasto avulso: criar, editar ou apagar. */
-export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: Props) {
+export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete, onComprovantes }: Props) {
   // Parcelada: edita o total da compra, nao a parcela do mes.
   const [valor, setValor] = useState(toInput(lancamento?.valorTotal ?? null));
   const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
@@ -38,6 +43,7 @@ export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: P
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [categorias, setCategorias] = useState<string[]>([categoria]);
   const [salvando, setSalvando] = useState(false);
+  const [pendentes, setPendentes] = useState<Pendente[]>([]);
   const ehNovo = lancamento === null;
 
   useEffect(() => {
@@ -80,8 +86,8 @@ export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: P
     const nParcelas = forma === "Crédito" ? Number(parcelas) : 1;
     if (!Number.isInteger(nParcelas) || nParcelas < 1 || nParcelas > 48) return notificar.erro("Parcelas de 1 a 48.");
     void executar(
-      () =>
-        onSave({
+      async () => {
+        const salvo = await onSave({
           valor: n,
           descricao: descricao.trim(),
           categoria,
@@ -89,7 +95,13 @@ export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: P
           data,
           cartaoId: forma === "Crédito" ? cartaoId : null,
           parcelas: nParcelas,
-        }),
+        });
+        if (salvo && pendentes.length) {
+          const falhas = await enviarPendentes(salvo.id, pendentes);
+          onComprovantes();
+          if (falhas) notificar.erro(`${falhas} comprovante(s) não subiram. Abra o gasto e anexe de novo.`);
+        }
+      },
       lancamento ? "Gasto atualizado." : "Gasto lançado.",
     );
   }
@@ -146,7 +158,7 @@ export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: P
               className="text-input"
               inputMode="numeric"
               value={parcelas}
-              onChange={(e) => setParcelas(e.target.value.replace(/D/g, "").slice(0, 2))}
+              onChange={(e) => setParcelas(e.target.value.replace(/\D/g, "").slice(0, 2))}
             />
           </div>
         </div>
@@ -173,6 +185,12 @@ export function LancamentoSheet({ lancamento, ym, onClose, onSave, onDelete }: P
           <input id="lanc-data" className="text-input" type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </div>
       </div>
+      <Comprovantes
+        alvo={lancamento ? { lancamento: lancamento.id } : null}
+        pendentes={pendentes}
+        onPendentes={setPendentes}
+        onMudou={onComprovantes}
+      />
       <div className="sheet-actions">
         {lancamento && (
           <button

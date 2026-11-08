@@ -1,44 +1,145 @@
+import {
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  KeyRound,
+  LogOut,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { api } from "../api/index.ts";
 import type { Usuario } from "../api/types.ts";
 import { AparenciaCard } from "../components/AparenciaCard.tsx";
+import { BotaoFoto, FotoCard } from "../components/FotoPerfil.tsx";
+import { NotificacoesCard } from "../components/NotificacoesCard.tsx";
+import { NovidadesLista } from "../components/NovidadesLista.tsx";
+import { marcarNovidadesVistas } from "../lib/novidades.ts";
 import { notificar } from "../lib/notificar.ts";
+import { AcessosPage } from "./AcessosPage.tsx";
+import { CadastroPage } from "./CadastroPage.tsx";
 
 interface Props {
   usuario: Usuario;
   onAtualizado: (usuario: Usuario) => void;
   onSair: () => void;
+  /** Cadastro mudou: o App recarrega o mes. */
+  onCadastroMudou: () => void;
+  /** Admin editou o proprio acesso: o App recarrega a sessao. */
+  onProprioAcessoMudou: () => void;
+  /** Tem versao nova que este aparelho nao viu. */
+  novidade: boolean;
+  onNovidadesVistas: () => void;
 }
 
-/** Dados da conta: nome, email, aparencia, troca de senha e sair. */
-export function PerfilPage({ usuario, onAtualizado, onSair }: Props) {
-  // Visitante so troca a aparencia: o back recusa nome, email e senha.
+type Sub = "cadastro" | "notificacoes" | "aparencia" | "novidades" | "conta" | "acessos";
+
+interface Item {
+  id: Sub;
+  label: string;
+  detalhe: string;
+  Icon: LucideIcon;
+}
+
+/**
+ * Perfil: menu no estilo Ajustes do iPhone. Cada item abre uma subpagina
+ * com botao de voltar. Cadastro e Acessos (admin) moram aqui.
+ */
+export function PerfilPage(props: Props) {
+  const { usuario, onAtualizado, onSair, novidade } = props;
+  const [sub, setSub] = useState<Sub | null>(null);
+  // Visitante so troca a aparencia e mexe nos dados de exemplo: o back recusa nome, email e senha.
   const visitante = usuario.papel === "visitante";
+
+  const itens: Item[] = [
+    { id: "cadastro", label: "Contas e receitas", detalhe: "Contas fixas e fontes de receita", Icon: SlidersHorizontal },
+    { id: "notificacoes", label: "Notificações", detalhe: "Lembrete todo dia 5", Icon: Bell },
+    { id: "aparencia", label: "Aparência", detalhe: "Tema e cores", Icon: Palette },
+    { id: "novidades", label: "O que mudou", detalhe: "Novidades de cada versão", Icon: Sparkles },
+    ...(visitante ? [] : [{ id: "conta" as const, label: "Dados e senha", detalhe: "Foto, nome, email e senha", Icon: KeyRound }]),
+    ...(usuario.papel === "admin"
+      ? [{ id: "acessos" as const, label: "Acessos", detalhe: "Quem entra no app", Icon: UsersRound }]
+      : []),
+  ];
+
+  function abrir(id: Sub) {
+    setSub(id);
+    window.scrollTo({ top: 0 });
+    if (id === "novidades") {
+      marcarNovidadesVistas();
+      props.onNovidadesVistas();
+    }
+  }
+
+  if (sub) {
+    const item = itens.find((i) => i.id === sub)!;
+    return (
+      <>
+        <div className="sub-topo">
+          <button type="button" className="voltar" onClick={() => setSub(null)}>
+            <ChevronLeft aria-hidden="true" />
+            Perfil
+          </button>
+          <h2 className="sub-titulo">{item.label}</h2>
+        </div>
+        {sub === "cadastro" && <CadastroPage onMudou={props.onCadastroMudou} />}
+        {sub === "notificacoes" && <NotificacoesCard />}
+        {sub === "aparencia" && <AparenciaCard usuario={usuario} onAtualizado={onAtualizado} />}
+        {sub === "novidades" && <NovidadesLista />}
+        {sub === "conta" && (
+          <>
+            <FotoCard usuario={usuario} onAtualizado={onAtualizado} />
+            <DadosCard usuario={usuario} onAtualizado={onAtualizado} />
+            <SenhaCard />
+          </>
+        )}
+        {sub === "acessos" && <AcessosPage usuarioId={usuario.id} onProprioMudou={props.onProprioAcessoMudou} />}
+      </>
+    );
+  }
+
   const pergunta = visitante
     ? "Sair do modo visitante? Os dados de exemplo não poderão ser abertos de novo."
     : `Sair de ${usuario.email}?`;
+
   return (
     <>
-      {visitante ? (
-        <section className="card">
-          <h2 className="card-title">Modo visitante</h2>
-          <p className="row-sub">Você está vendo dados de exemplo. Pode lançar, editar e apagar à vontade: esse acesso e os dados dele são apagados em 24h.</p>
-        </section>
-      ) : (
-        <DadosCard usuario={usuario} onAtualizado={onAtualizado} />
-      )}
-      <AparenciaCard usuario={usuario} onAtualizado={onAtualizado} />
-      {!visitante && <SenhaCard />}
-      <section className="card">
-        <button type="button" className="btn ghost perfil-sair" onClick={() => confirm(pergunta) && onSair()}>
-          Sair da conta
-        </button>
+      <section className="card perfil-topo">
+        <BotaoFoto usuario={usuario} onAtualizado={onAtualizado} />
+        <div className="perfil-quem">
+          <strong>{usuario.nome}</strong>
+          <span className="row-sub">{visitante ? "Modo visitante · dados de exemplo apagados em 24h" : usuario.email}</span>
+        </div>
       </section>
+
+      <section className="card menu">
+        {itens.map(({ id, label, detalhe, Icon }) => (
+          <button key={id} type="button" className="menu-item" onClick={() => abrir(id)}>
+            <span className="menu-ico">
+              <Icon aria-hidden="true" />
+            </span>
+            <span className="menu-texto">
+              <span className="row-name">{label}</span>
+              <span className="row-sub">{detalhe}</span>
+            </span>
+            {id === "novidades" && novidade && <span className="badge pendente">Novo</span>}
+            <ChevronRight className="menu-seta" aria-hidden="true" />
+          </button>
+        ))}
+      </section>
+
+      <button type="button" className="btn ghost perfil-sair btn-icone" onClick={() => confirm(pergunta) && onSair()}>
+        <LogOut aria-hidden="true" />
+        Sair da conta
+      </button>
     </>
   );
 }
 
-function DadosCard({ usuario, onAtualizado }: Omit<Props, "onSair">) {
+function DadosCard({ usuario, onAtualizado }: Pick<Props, "usuario" | "onAtualizado">) {
   const [nome, setNome] = useState(usuario.nome);
   const [email, setEmail] = useState(usuario.email);
   const [senhaAtual, setSenhaAtual] = useState("");
@@ -68,7 +169,7 @@ function DadosCard({ usuario, onAtualizado }: Omit<Props, "onSair">) {
 
   return (
     <section className="card">
-      <h2 className="card-title">Perfil</h2>
+      <h2 className="card-title">Dados</h2>
       <form className="login-form" onSubmit={submit}>
         <div className="field">
           <label htmlFor="perfil-nome">Nome</label>

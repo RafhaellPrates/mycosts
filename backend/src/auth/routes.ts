@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
+import { TIPOS_IMAGEM, arquivoDe, corpoArquivo, enviarArquivo } from "../arquivos.js";
 import { HttpError, usuarioDe } from "../http.js";
 import { pool } from "../pool.js";
 import { assinarToken, exigirLogin } from "./token.js";
@@ -121,3 +122,37 @@ authRouter.patch(
     }
   },
 );
+
+// ---- foto de perfil ----
+
+// O front manda a foto ja recortada e reduzida (256px, ~30 KB); 1 MB e folga.
+const MEU = `select ${USUARIO_COLS} from usuarios where id = $1`;
+
+/** Troca a foto. Corpo = a imagem crua (JPG, PNG ou WEBP). Devolve o usuario com fotoVersao nova. */
+authRouter.put("/me/foto", exigirLogin, corpoArquivo("1mb"), async (req, res) => {
+  const id = usuarioDe(req);
+  const { dados, tipo } = arquivoDe(req.body, TIPOS_IMAGEM);
+  await pool.query(
+    `insert into fotos_perfil (usuario_id, tipo, dados) values ($1, $2, $3)
+     on conflict (usuario_id) do update set tipo = excluded.tipo, dados = excluded.dados, atualizado_em = now()`,
+    [id, tipo, dados],
+  );
+  const { rows } = await pool.query<UsuarioRow>(MEU, [id]);
+  res.json({ usuario: rows[0] });
+});
+
+authRouter.delete("/me/foto", exigirLogin, async (req, res) => {
+  const id = usuarioDe(req);
+  await pool.query("delete from fotos_perfil where usuario_id = $1", [id]);
+  const { rows } = await pool.query<UsuarioRow>(MEU, [id]);
+  res.json({ usuario: rows[0] });
+});
+
+authRouter.get("/me/foto", exigirLogin, async (req, res) => {
+  const { rows } = await pool.query<{ tipo: string; dados: Buffer }>(
+    "select tipo, dados from fotos_perfil where usuario_id = $1",
+    [usuarioDe(req)],
+  );
+  if (!rows[0]) throw new HttpError(404, "Sem foto.");
+  enviarArquivo(res, rows[0].tipo, rows[0].dados);
+});
