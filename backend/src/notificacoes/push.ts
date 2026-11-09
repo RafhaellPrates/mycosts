@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import webpush from "web-push";
 import { env } from "../env.js";
 import { hojeBR } from "../cartoes/fatura.js";
@@ -60,40 +61,90 @@ function horaBR(): number {
   return Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }).format(new Date()));
 }
 
-// Dia e hora do lembrete mensal.
+/** Janela em que os avisos saem (horario de Sao Paulo): ninguem recebe de madrugada. */
+const HORA_INICIO = 9;
+const HORA_FIM = 21;
+/** Lembrete de quem nao informou o dia do recebimento em nenhuma fonte. */
 export const DIA_LEMBRETE = 5;
-const HORA_LEMBRETE = 9;
 
-/**
- * Lembrete do dia 5: a partir das 9h, uma vez por mes por aparelho. Roda a
- * cada 15 min (index.ts). Se o servidor ficou fora no dia 5, manda na
- * primeira rodada depois, ainda no mesmo mes.
- */
-export async function lembreteDoMes(): Promise<number> {
-  if (!pushAtivo) return 0;
-  const hoje = hojeBR();
-  if (hoje.d < DIA_LEMBRETE || (hoje.d === DIA_LEMBRETE && horaBR() < HORA_LEMBRETE)) return 0;
-  const mes = ymDe(hoje);
-  const { rows } = await pool.query<InscricaoRow>(
-    "select endpoint, p256dh, auth from push_inscricoes where ultimo_aviso is distinct from $1",
-    [mes],
-  );
-  let n = 0;
-  for (const i of rows) {
-    // Marca antes de mandar: se o processo cair no meio, ninguem recebe duas vezes.
-    await pool.query("update push_inscricoes set ultimo_aviso = $2 where endpoint = $1", [i.endpoint, mes]);
-    const ok = await enviar(i, {
-      titulo: "Hora de organizar as finanças",
-      corpo: "Lance as receitas do mês e confira as contas que vão vencer.",
-      tag: `lembrete-${mes}`,
-    });
-    if (ok) n++;
+/** Versao mais nova do "O que mudou" (frontend/src/lib/novidades.json, o mesmo arquivo do front). */
+export const VERSAO_ATUAL: string | null = (() => {
+  try {
+    const lista = JSON.parse(readFileSync(new URL("../../../frontend/src/lib/novidades.json", import.meta.url), "utf8"));
+    return typeof lista[0]?.versao === "string" ? lista[0].versao : null;
+  } catch (e) {
+    console.error("novidades.json:", (e as Error).message);
+    return null;
   }
-  return n;
+})();
+
+/** Registra o aviso. true = primeira vez, quem chamou manda o push. Marca antes de mandar: ninguem recebe duas vezes. */
+export async function marcarAviso(usuarioId: string, chave: string): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    "insert into avisos_enviados (usuario_id, chave) values ($1, $2) on conflict do nothing",
+    [usuarioId, chave],
+  );
+  return rowCount === 1;
 }
 
-/** Mes em que a inscricao nova ja conta como avisada: quem ativa depois do dia 5 recebe a partir do mes seguinte. */
-export function avisoInicial(): string | null {
+async function avisar(usuarioId: string, chave: string, m: Mensagem): Promise<number> {
+  return (await marcarAviso(usuarioId, chave)) ? enviarParaUsuario(usuarioId, m) : 0;
+}
+
+/**
+ * Avisos automaticos. Roda a cada 15 min (index.ts), entre 9h e 21h:
+ * - no dia do recebimento de cada fonte ativa ("Salario na conta"). Dia 31
+ *   em mes de 30 dias cai no ultimo dia;
+ * - no dia 5, para quem nao informou dia em nenhuma fonte;
+ * - versao nova publicada, uma vez por usuario.
+ * So entra quem tem aparelho inscrito. Retorna quantos aparelhos receberam.
+ */
+export async function avisosAutomaticos(): Promise<number> {
+  if (!pushAtivo) return 0;
+  const hora = horaBR();
+  if (hora < HORA_INICIO || hora >= HORA_FIM) return 0;
   const hoje = hojeBR();
-  return hoje.d >= DIA_LEMBRETE ? ymDe(hoje) : null;
+  const mes = ymDe(hoje);
+  const ultimoDia = new Date(hoje.y, hoje.m, 0).getDate();
+  let n = 0;
+
+  const { rows: fontes } = await pool.query<{ usuario_id: string; id: string; nome: string }>(
+    `select f.usuario_id, f.id, f.nome from fontes_receita f
+     where f.ativa and least(f.dia, $1) = $2
+       and exists (select 1 from push_inscricoes p where p.usuario_id = f.usuario_id)`,
+    [ultimoDia, hoje.d],
+  );
+  for (const f of fontes) {
+    n += await avisar(f.usuario_id, `receita:${f.id}:${mes}`, {
+      titulo: `${f.nome} na conta`,
+      corpo: "Melhor já se organizar: lance a receita e confira as contas do mês.",
+      tag: `receita-${f.id}-${mes}`,
+    });
+  }
+
+  if (hoje.d === DIA_LEMBRETE) {
+    const { rows } = await pool.query<{ usuario_id: string }>(
+      `select distinct p.usuario_id from push_inscricoes p
+       where not exists (select 1 from fontes_receita f where f.usuario_id = p.usuario_id and f.ativa and f.dia is not null)`,
+    );
+    for (const u of rows) {
+      n += await avisar(u.usuario_id, `lembrete:${mes}`, {
+        titulo: "Hora de organizar as finanças",
+        corpo: "Lance as receitas do mês e confira as contas que vão vencer.",
+        tag: `lembrete-${mes}`,
+      });
+    }
+  }
+
+  if (VERSAO_ATUAL) {
+    const { rows } = await pool.query<{ usuario_id: string }>("select distinct usuario_id from push_inscricoes");
+    for (const u of rows) {
+      n += await avisar(u.usuario_id, `versao:${VERSAO_ATUAL}`, {
+        titulo: "Chegou uma nova atualização",
+        corpo: "Vem conferir o que mudou no MyCosts.",
+        tag: `versao-${VERSAO_ATUAL}`,
+      });
+    }
+  }
+  return n;
 }

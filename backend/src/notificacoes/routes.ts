@@ -4,7 +4,7 @@ import { exigirLogin } from "../auth/token.js";
 import { env } from "../env.js";
 import { HttpError, usuarioDe } from "../http.js";
 import { pool } from "../pool.js";
-import { avisoInicial, enviarParaUsuario, pushAtivo } from "./push.js";
+import { VERSAO_ATUAL, enviarParaUsuario, marcarAviso, pushAtivo } from "./push.js";
 
 const inscricao = z.object({
   endpoint: z.string().url("Inscricao invalida.").max(1000),
@@ -29,10 +29,12 @@ notificacoesRouter.post("/inscricao", async (req, res) => {
   const usuario = usuarioDe(req);
   const i = inscricao.parse(req.body);
   await pool.query(
-    `insert into push_inscricoes (endpoint, usuario_id, p256dh, auth, ultimo_aviso) values ($1, $2, $3, $4, $5)
+    `insert into push_inscricoes (endpoint, usuario_id, p256dh, auth) values ($1, $2, $3, $4)
      on conflict (endpoint) do update set usuario_id = excluded.usuario_id, p256dh = excluded.p256dh, auth = excluded.auth`,
-    [i.endpoint, usuario, i.keys.p256dh, i.keys.auth, avisoInicial()],
+    [i.endpoint, usuario, i.keys.p256dh, i.keys.auth],
   );
+  // Quem liga agora ja esta na versao atual: o aviso de atualizacao fica para a proxima.
+  if (VERSAO_ATUAL) await marcarAviso(usuario, `versao:${VERSAO_ATUAL}`);
   res.status(201).json({ ok: true });
 });
 
@@ -47,7 +49,7 @@ notificacoesRouter.post("/teste", async (req, res) => {
   if (!pushAtivo) throw new HttpError(503, "Notificações não estão configuradas no servidor.");
   const entregues = await enviarParaUsuario(usuarioDe(req), {
     titulo: "MyCosts",
-    corpo: "Notificações ligadas. Todo dia 5 você recebe o lembrete de organizar as finanças.",
+    corpo: "Notificações ligadas. Você recebe um aviso no dia do salário e quando sair versão nova.",
     tag: "teste",
   });
   if (!entregues) throw new HttpError(404, "Nenhum aparelho recebeu. Ative as notificações de novo.");

@@ -177,6 +177,8 @@ export interface Fonte {
   nome: string;
   /** Valor previsto por mes. */
   previsto: number;
+  /** Dia do recebimento (1 a 31): nesse dia chega o push "<nome> na conta". */
+  dia: number | null;
   ativa: boolean;
   ordem: number;
 }

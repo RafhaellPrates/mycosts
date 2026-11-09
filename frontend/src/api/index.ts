@@ -97,8 +97,8 @@ export const api = {
     http.patch<ContaCadastro>(`/contas/${id}`, body),
   apagarConta: (id: string) => http.delete<void>(`/contas/${id}`),
   fontes: () => http.get<{ fontes: Fonte[] }>("/fontes"),
-  criarFonte: (body: { nome: string; previsto: number }) => http.post<Fonte>("/fontes", body),
-  editarFonte: (id: string, body: { nome?: string; previsto?: number; ativa?: boolean }) =>
+  criarFonte: (body: { nome: string; previsto: number; dia: number | null }) => http.post<Fonte>("/fontes", body),
+  editarFonte: (id: string, body: { nome?: string; previsto?: number; dia?: number | null; ativa?: boolean }) =>
     http.patch<Fonte>(`/fontes/${id}`, body),
   apagarFonte: (id: string) => http.delete<void>(`/fontes/${id}`),
 };

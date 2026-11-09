@@ -10,11 +10,12 @@ const TEXTO: Record<EstadoPush, string> = {
     "No iPhone, as notificações só funcionam com o app na Tela de Início: toque em Compartilhar e depois em Adicionar à Tela de Início. Abra o MyCosts por lá e volte aqui.",
   "servidor-desligado": "As notificações ainda não foram configuradas no servidor.",
   bloqueado: "As notificações estão bloqueadas para o MyCosts. Libere nos Ajustes do aparelho (Notificações) e volte aqui.",
-  desligado: "Ative para receber um lembrete todo dia 5 de organizar as finanças do mês.",
-  ligado: "Ligadas neste aparelho. Todo dia 5, às 9h, chega o lembrete para organizar as finanças.",
+  desligado: "Ative para receber um aviso no dia do salário e quando sair versão nova do app.",
+  ligado:
+    "Ligadas neste aparelho. Às 9h do dia do recebimento chega o aviso do salário (informe o dia em Cadastro > Fontes de receita; sem dia, o aviso é no dia 5). Versão nova também avisa.",
 };
 
-/** Liga ou desliga o lembrete do dia 5 neste aparelho. */
+/** Liga ou desliga as notificacoes (salario e versao nova) neste aparelho. */
 export function NotificacoesCard() {
   const [estado, setEstado] = useState<EstadoPush | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -58,7 +59,7 @@ export function NotificacoesCard() {
       <div className="aviso-linha">
         {ligado ? <BellRing className="aviso-ico pos" aria-hidden="true" /> : <BellOff className="aviso-ico" aria-hidden="true" />}
         <div>
-          <h2 className="item-titulo">Lembrete do dia 5</h2>
+          <h2 className="item-titulo">Notificações</h2>
           <p className="row-sub">{TEXTO[estado]}</p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { app } from "./app.js";
 import { apagarVisitantesVencidos } from "./auth/visitante.js";
 import { env } from "./env.js";
-import { lembreteDoMes } from "./notificacoes/push.js";
+import { avisosAutomaticos } from "./notificacoes/push.js";
 
 app.listen(env.PORT, () => {
   console.log(`mycosts backend ouvindo em http://localhost:${env.PORT}`);
@@ -12,13 +12,13 @@ setInterval(() => {
   apagarVisitantesVencidos().catch((e) => console.error("limpeza de visitantes:", e));
 }, 60 * 60 * 1000).unref();
 
-// Lembrete do dia 5 (Web Push). A propria funcao confere dia, hora e quem ja recebeu.
+// Avisos por Web Push (salario, dia 5, versao nova). A propria funcao confere hora, dia e quem ja recebeu.
 function lembrete() {
-  lembreteDoMes()
+  avisosAutomaticos()
     .then((n) => {
-      if (n) console.log(`lembrete do mes enviado para ${n} aparelho(s)`);
+      if (n) console.log(`avisos enviados para ${n} aparelho(s)`);
     })
-    .catch((e) => console.error("lembrete do mes:", e));
+    .catch((e) => console.error("avisos automaticos:", e));
 }
 lembrete();
 setInterval(lembrete, 15 * 60 * 1000).unref();
