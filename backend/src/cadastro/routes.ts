@@ -24,16 +24,17 @@ const contaNova = contaCampos.extend({
 // Desativar (ativa: false) tira a conta dos meses novos sem apagar o historico.
 const contaEdicao = contaCampos.partial().extend({ ativa: z.boolean().optional() });
 
-const fonteCampos = z.object({ nome, previsto: dinheiro, ordem: z.number().int() });
+const fonteCampos = z.object({ nome, previsto: dinheiro, dia: z.number().int().min(1).max(31).nullable(), ordem: z.number().int() });
 // Default so na criacao, como em contaNova.
 const fonteNova = fonteCampos.extend({
   previsto: fonteCampos.shape.previsto.default(0),
+  dia: fonteCampos.shape.dia.default(null),
   ordem: fonteCampos.shape.ordem.optional(),
 });
 const fonteEdicao = fonteCampos.partial().extend({ ativa: z.boolean().optional() });
 
 const CONTA_COLS = `id, nome, categoria, dia_venc as "diaVenc", previsto, ativa, ordem`;
-const FONTE_COLS = `id, nome, previsto, ativa, ordem`;
+const FONTE_COLS = `id, nome, previsto, dia, ativa, ordem`;
 
 export const cadastroRouter = Router();
 cadastroRouter.use(["/categorias", "/contas", "/fontes"], exigirLogin);
@@ -88,18 +89,18 @@ cadastroRouter.get("/fontes", async (req, res) => {
 cadastroRouter.post("/fontes", async (req, res) => {
   const f = fonteNova.parse(req.body);
   const { rows } = await pool.query(
-    `insert into fontes_receita (usuario_id, nome, previsto, ordem)
-     values ($1, $2, $3,
-       coalesce($4, (select coalesce(max(ordem), 0) + 1 from fontes_receita where usuario_id = $1)))
+    `insert into fontes_receita (usuario_id, nome, previsto, dia, ordem)
+     values ($1, $2, $3, $4,
+       coalesce($5, (select coalesce(max(ordem), 0) + 1 from fontes_receita where usuario_id = $1)))
      returning ${FONTE_COLS}`,
-    [usuarioDe(req), f.nome, f.previsto, f.ordem ?? null],
+    [usuarioDe(req), f.nome, f.previsto, f.dia, f.ordem ?? null],
   );
   res.status(201).json(rows[0]);
 });
 
 cadastroRouter.patch("/fontes/:id", async (req, res) => {
   const id = uuid.parse(req.params.id);
-  const { sets, valores } = setDe(fonteEdicao.parse(req.body), { nome: "nome", previsto: "previsto", ativa: "ativa", ordem: "ordem" }, 3);
+  const { sets, valores } = setDe(fonteEdicao.parse(req.body), { nome: "nome", previsto: "previsto", dia: "dia", ativa: "ativa", ordem: "ordem" }, 3);
   const { rows } = await pool.query(
     `update fontes_receita set ${sets} where id = $1 and usuario_id = $2 returning ${FONTE_COLS}`,
     [id, usuarioDe(req), ...valores],

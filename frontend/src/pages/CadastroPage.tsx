@@ -134,6 +134,7 @@ Para manter o histórico, use Desativar no formulário.`,
               <div key={f.id} className={`row row-com-acoes ${f.ativa ? "" : "inativa"}`}>
                 <div className="row-main">
                   <span className="row-name">{f.nome}</span>
+                  {f.dia && <span className="row-sub">Recebe dia {f.dia}</span>}
                 </div>
                 <div className="row-side">
                   {!f.ativa && <span className="badge">Inativa</span>}

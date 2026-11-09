@@ -16,6 +16,7 @@ interface Props {
 export function FonteSheet({ fonte, onClose, onSalvo }: Props) {
   const [nome, setNome] = useState(fonte?.nome ?? "");
   const [previsto, setPrevisto] = useState(toInput(fonte?.previsto ?? null));
+  const [dia, setDia] = useState(fonte?.dia ? String(fonte.dia) : "");
   const [salvando, setSalvando] = useState(false);
 
   async function executar(acao: () => Promise<unknown>, sucesso: string) {
@@ -36,7 +37,10 @@ export function FonteSheet({ fonte, onClose, onSalvo }: Props) {
     const valor = parseMoney(previsto) ?? 0;
     if (!nome.trim()) return notificar.erro("Informe o nome.");
     if (valor < 0) return notificar.erro("Valor não pode ser negativo.");
-    const body = { nome: nome.trim(), previsto: valor };
+    const diaNum = dia.trim() ? Number(dia) : null;
+    if (diaNum !== null && (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31))
+      return notificar.erro("Dia do recebimento deve ser de 1 a 31.");
+    const body = { nome: nome.trim(), previsto: valor, dia: diaNum };
     void executar(
       () => (fonte ? api.editarFonte(fonte.id, body) : api.criarFonte(body)),
       fonte ? "Fonte atualizada." : "Fonte criada.",
@@ -50,6 +54,21 @@ export function FonteSheet({ fonte, onClose, onSalvo }: Props) {
         <input id="fonte-nome" className="text-input" value={nome} onChange={(e) => setNome(e.target.value)} maxLength={80} autoFocus />
       </div>
       <MoneyInput id="fonte-previsto" label="Valor previsto por mês" value={previsto} onChange={setPrevisto} />
+      <div className="field">
+        <label htmlFor="fonte-dia">Dia do recebimento (opcional)</label>
+        <input
+          id="fonte-dia"
+          className="text-input"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={31}
+          value={dia}
+          onChange={(e) => setDia(e.target.value)}
+          placeholder="Ex: 5"
+        />
+        <p className="row-sub">Nesse dia chega a notificação "{nome.trim() || "Salário"} na conta".</p>
+      </div>
       <div className="sheet-actions">
         {fonte && (
           <button
